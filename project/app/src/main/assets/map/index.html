@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src https://tile.openstreetmap.org data:; connect-src 'none'">
+  <link rel="stylesheet" href="leaflet.css">
+  <style>
+    html,body{height:100%;width:100%;margin:0;background:#dceff4;font-family:sans-serif}
+    #map{position:absolute;inset:0;width:100%;height:100vh}
+    .leaflet-container{font-family:sans-serif}
+    .leaflet-control-attribution{font-size:10px!important;max-width:95%}
+    .leaflet-popup-content{line-height:1.5;color:#145368}
+    .leaflet-popup-content button{min-height:44px;background:#e4f4fb;color:#145368;border:0;border-radius:10px;padding:8px 16px;margin-top:8px}
+    .leaflet-control-zoom a{width:40px!important;height:40px!important;line-height:40px!important;color:#145368!important}
+    .spot{width:30px;height:30px;border-radius:50%;background:#277a90;border:3px solid white;box-shadow:0 2px 8px #14536866;display:flex;align-items:center;justify-content:center;color:white;font-size:19px}
+    .adding{cursor:crosshair}
+    .leaflet-control-layers{display:none}
+  </style>
+</head>
+<body>
+<div id="map" role="region" aria-label="Mapa punktów uzupełniania wody"></div>
+<script src="leaflet.js"></script>
+<script>
+  const send = (action, params = {}) => {
+    window.location.href = 'hydrotracker://' + action + '?' + new URLSearchParams(params);
+  };
+  const map = L.map('map', {minZoom:2, maxZoom:19, worldCopyJump:true}).setView([52.0,19.1],6);
+  new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById('map'));
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  let loaded = false;
+  let tileErrorReported = false;
+  tiles.on('tileload', () => {
+    if (!loaded) { loaded = true; send('loaded'); }
+  });
+  tiles.on('tileerror', () => {
+    if (!tileErrorReported) { tileErrorReported = true; send('error'); }
+  });
+  setTimeout(() => { if (!loaded && !tileErrorReported) send('error'); }, 15000);
+
+  // Synthetic polygons for demonstrating the filter, not municipal boundaries or water reports.
+  const areas = [
+    {name:'A', status:'drinkable', coords:[[51.60,18.75],[51.66,19.43],[52.02,19.53],[52.17,19.05],[51.96,18.65]]},
+    {name:'B', status:'not_drinkable', coords:[[51.99,20.35],[52.03,21.24],[52.42,21.46],[52.55,20.82],[52.30,20.28]]},
+    {name:'C', status:'drinkable', coords:[[50.04,19.38],[49.81,19.72],[49.83,20.38],[50.17,20.48],[50.34,19.77]]},
+    {name:'D', status:'not_drinkable', coords:[[50.85,16.50],[50.77,17.24],[51.12,17.53],[51.39,17.06],[51.25,16.48]]},
+    {name:'E', status:'drinkable', coords:[[53.95,17.95],[53.98,18.85],[54.49,19.02],[54.65,18.20],[54.30,17.82]]}
+  ];
+  const areaLayer = L.layerGroup().addTo(map);
+  const spotLayer = L.layerGroup().addTo(map);
+  let adding = false;
+  let lastSpots = '';
+  let lastFilter = '';
+  let draft = null;
+  window.updateMap = (spots, filter, addMode, text, accountId) => {
+    document.documentElement.lang = text.language;
+    const zoomIn = document.querySelector('.leaflet-control-zoom-in');
+    const zoomOut = document.querySelector('.leaflet-control-zoom-out');
+    if (zoomIn) { zoomIn.title = text.zoomIn; zoomIn.setAttribute('aria-label', text.zoomIn); }
+    if (zoomOut) { zoomOut.title = text.zoomOut; zoomOut.setAttribute('aria-label', text.zoomOut); }
+    document.getElementById('map').setAttribute('aria-label', text.mapLabel);
+    adding = addMode;
+    document.getElementById('map').classList.toggle('adding', adding);
+    if (!adding && draft) { map.removeLayer(draft); draft = null; }
+    if (lastFilter !== filter + text.language) {
+      lastFilter = filter + text.language;
+      areaLayer.clearLayers();
+      areas.filter(area => filter === 'all' || filter === area.status).forEach(area => {
+        const green = area.status === 'drinkable';
+        const polygon = L.polygon(area.coords, {
+          color:green ? '#217b4c' : '#b93843', fillOpacity:0.30, weight:2
+        });
+        const popup = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = text.demoArea.replace('%1$s', area.name);
+        popup.append(title, document.createElement('br'),
+          green ? text.demoGreen : text.demoRed, document.createElement('br'),
+          text.demoPopup);
+        polygon.bindPopup(popup).addTo(areaLayer);
+      });
+    }
+    const serialized = JSON.stringify(spots) + text.language + accountId;
+    if (serialized !== lastSpots) {
+      lastSpots = serialized;
+      spotLayer.clearLayers();
+      spots.forEach(spot => {
+        const marker = L.marker([spot.latitude, spot.longitude], {
+          icon:L.divIcon({html:'<div class="spot">💧</div>',className:'',iconSize:[36,36],iconAnchor:[18,18]}),
+          title:spot.name, alt:spot.name
+        });
+        const popup = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = spot.name;
+        const remove = document.createElement('button');
+        remove.textContent = text.remove;
+        remove.addEventListener('click', () => send('delete', {id:spot.id}));
+        const feedback = document.createElement('button');
+        feedback.textContent = text.feedback + ' (' + spot.feedbackCount + ')';
+        feedback.addEventListener('click', () => send('feedback', {id:spot.id}));
+        popup.append(title, document.createElement('br'), text.pointNote, document.createElement('br'));
+        if (spot.lastFeedback) popup.append(text[spot.lastFeedback], document.createElement('br'));
+        popup.append(feedback);
+        if (!spot.ownerId || spot.ownerId === accountId) popup.append(document.createElement('br'), remove);
+        marker.bindPopup(popup).addTo(spotLayer);
+      });
+    }
+  };
+  map.on('click', event => {
+    if (!adding) return;
+    if (draft) map.removeLayer(draft);
+    const latitude = event.latlng.lat;
+    const longitude = ((event.latlng.lng + 180) % 360 + 360) % 360 - 180;
+    draft = L.circleMarker([latitude, longitude], {radius:10,color:'#145368',fillColor:'#b6eaff',fillOpacity:1}).addTo(map);
+    send('add', {latitude, longitude});
+  });
+  send('ready');
+</script>
+</body>
+</html>
