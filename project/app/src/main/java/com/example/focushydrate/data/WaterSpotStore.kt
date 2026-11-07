@@ -38,8 +38,9 @@ class WaterSpotStore(context: Context) {
     }.toString()
     companion object {
         fun toJson(spots: List<WaterSpot>, reports: List<SpotFeedback> = emptyList()): String = JSONArray().apply {
+            val bySpot = reports.groupBy { it.spotId }
             spots.forEach { spot ->
-                val feedback = reports.filter { it.spotId == spot.id }
+                val feedback = bySpot[spot.id].orEmpty()
                 put(JSONObject().put("id", spot.id).put("name", spot.name).put("ownerId", spot.ownerId)
                     .put("latitude", spot.latitude).put("longitude", spot.longitude)
                     .put("feedbackCount", feedback.size).put("lastFeedback", feedback.maxByOrNull { it.createdAt }?.status?.name ?: ""))

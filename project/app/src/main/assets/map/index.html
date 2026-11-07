@@ -58,10 +58,10 @@
   const areaLayer = L.layerGroup().addTo(map);
   const spotLayer = L.layerGroup().addTo(map);
   let adding = false;
-  let lastSpots = '';
+  const markers = new Map();
   let lastFilter = '';
   let draft = null;
-  window.updateMap = (spots, filter, addMode, text, accountId) => {
+  window.updateControls = (filter, addMode, text) => {
     document.documentElement.lang = text.language;
     const zoomIn = document.querySelector('.leaflet-control-zoom-in');
     const zoomOut = document.querySelector('.leaflet-control-zoom-out');
@@ -88,15 +88,23 @@
         polygon.bindPopup(popup).addTo(areaLayer);
       });
     }
-    const serialized = JSON.stringify(spots) + text.language + accountId;
-    if (serialized !== lastSpots) {
-      lastSpots = serialized;
-      spotLayer.clearLayers();
+  };
+  window.updateSpots = (spots, text, accountId) => {
+      const ids = new Set(spots.map(spot => spot.id));
+      for (const [id, entry] of markers) {
+        if (!ids.has(id)) {
+          spotLayer.removeLayer(entry.marker);
+          markers.delete(id);
+        }
+      }
       spots.forEach(spot => {
-        const marker = L.marker([spot.latitude, spot.longitude], {
+        const signature = JSON.stringify([spot, text.language, accountId]);
+        const existing = markers.get(spot.id);
+        if (existing?.signature === signature) return;
+        const marker = existing?.marker || L.marker([spot.latitude, spot.longitude], {
           icon:L.divIcon({html:'<div class="spot">💧</div>',className:'',iconSize:[36,36],iconAnchor:[18,18]}),
           title:spot.name, alt:spot.name
-        });
+        }).addTo(spotLayer);
         const popup = document.createElement('div');
         const title = document.createElement('strong');
         title.textContent = spot.name;
@@ -110,9 +118,10 @@
         if (spot.lastFeedback) popup.append(text[spot.lastFeedback], document.createElement('br'));
         popup.append(feedback);
         if (!spot.ownerId || spot.ownerId === accountId) popup.append(document.createElement('br'), remove);
-        marker.bindPopup(popup).addTo(spotLayer);
+        if (existing) marker.setPopupContent(popup);
+        else marker.bindPopup(popup);
+        markers.set(spot.id, {marker, signature});
       });
-    }
   };
   map.on('click', event => {
     if (!adding) return;

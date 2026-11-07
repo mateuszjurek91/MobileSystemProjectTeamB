@@ -39,18 +39,28 @@ fun MapScreen(profile: AccountProfile) {
     val resources = LocalResources.current
     val store = remember { WaterSpotStore(context.applicationContext) }
     var dataAttempt by remember { mutableIntStateOf(0) }
-    val initial = remember(dataAttempt) { runCatching { store.load() to store.loadFeedback() } }
-    if (initial.isFailure) {
+    var loaded by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf(false) }
+    var spots by remember { mutableStateOf(emptyList<WaterSpot>()) }
+    var reports by remember { mutableStateOf(emptyList<SpotFeedback>()) }
+    LaunchedEffect(profile.id, dataAttempt) {
+        loadError = false
+        val result = withContext(Dispatchers.IO) { runCatching { store.load() to store.loadFeedback() } }
+        result.onSuccess { (points, feedback) ->
+            spots = points
+            reports = feedback
+            loaded = true
+        }.onFailure { loadError = true }
+    }
+    if (loadError) {
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
             Text(stringResource(R.string.error_load))
             Button(onClick = { dataAttempt++ }) { Text(stringResource(R.string.retry)) }
         }
         return
     }
-    var spots by remember { mutableStateOf(initial.getOrNull()?.first ?: emptyList()) }
-    var reports by remember { mutableStateOf(initial.getOrNull()?.second ?: emptyList()) }
     var feedbackSpot by remember { mutableStateOf<WaterSpot?>(null) }
-    val translations = mapTranslations(resources)
+    val translations = remember(resources, resources.configuration.locales[0]) { mapTranslations(resources) }
     var message by remember { mutableStateOf<String?>(null) }
     var filter by rememberSaveable { mutableStateOf("all") }
     var adding by rememberSaveable { mutableStateOf(false) }
@@ -147,8 +157,18 @@ fun MapScreen(profile: AccountProfile) {
                         }
                     },
                     update = { view ->
-                        if (ready) view.evaluateJavascript(
-                            "window.updateMap && window.updateMap(${WaterSpotStore.toJson(spots, reports)}, '$filter', $adding, $translations, ${JSONObject.quote(profile.id)});", null)
+                        if (ready && loaded) {
+                            val previous = view.tag as? MapRenderState
+                            val state = MapRenderState(spots, reports, translations, filter, adding)
+                            if (previous?.filter != filter || previous.adding != adding || previous.translations != translations) {
+                                view.evaluateJavascript("window.updateControls('$filter', $adding, $translations)", null)
+                            }
+                            if (previous?.spots !== spots || previous?.reports !== reports || previous.translations != translations) {
+                                val points = WaterSpotStore.toJson(spots, reports)
+                                view.evaluateJavascript("window.updateSpots($points, $translations, ${JSONObject.quote(profile.id)})", null)
+                            }
+                            view.tag = state
+                        }
                     },
                     onRelease = { view -> view.stopLoading(); view.destroy() }
                 )
@@ -162,7 +182,7 @@ fun MapScreen(profile: AccountProfile) {
                     }
                 }
             }
-            if (!adding) {
+            if (loaded && !adding) {
                 ExtendedFloatingActionButton(
                     onClick = { adding = true }, expanded = true,
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
@@ -247,3 +267,8 @@ private fun mapTranslations(resources: android.content.res.Resources): String = 
     put("NO_WATER", resources.getString(R.string.feedback_no_water))
     put("WRONG_LOCATION", resources.getString(R.string.feedback_wrong_location))
 }.toString()
+
+private data class MapRenderState(
+    val spots: List<WaterSpot>, val reports: List<SpotFeedback>,
+    val translations: String, val filter: String, val adding: Boolean
+)
