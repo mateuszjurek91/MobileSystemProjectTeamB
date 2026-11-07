@@ -72,6 +72,12 @@ fun MapScreen(profile: AccountProfile) {
     var mapState by remember { mutableStateOf("loading") }
     var reload by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    var pointsJson by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(loaded, spots, reports) {
+        if (loaded) {
+            pointsJson = withContext(Dispatchers.Default) { WaterSpotStore.toJson(spots, reports) }
+        }
+    }
 
     fun save(next: List<WaterSpot>, onSaved: () -> Unit) {
         saving = true
@@ -115,6 +121,7 @@ fun MapScreen(profile: AccountProfile) {
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             key(reload) {
+                val generation = reload
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { viewContext ->
@@ -127,6 +134,7 @@ fun MapScreen(profile: AccountProfile) {
                             settings.userAgentString = settings.userAgentString + " FocusHydrate/1.0 (MobileSystemProjectTeamB)"
                             webViewClient = object : WebViewClient() {
                                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                                    if (generation != reload) return true
                                     val url = request.url
                                     if (!request.isForMainFrame) return true
                                     if (url.scheme == "hydrotracker") {
@@ -157,14 +165,14 @@ fun MapScreen(profile: AccountProfile) {
                         }
                     },
                     update = { view ->
-                        if (ready && loaded) {
+                        val points = pointsJson
+                        if (ready && loaded && points != null) {
                             val previous = view.tag as? MapRenderState
-                            val state = MapRenderState(spots, reports, translations, filter, adding)
+                            val state = MapRenderState(points, translations, filter, adding)
                             if (previous?.filter != filter || previous.adding != adding || previous.translations != translations) {
                                 view.evaluateJavascript("window.updateControls('$filter', $adding, $translations)", null)
                             }
-                            if (previous?.spots !== spots || previous?.reports !== reports || previous.translations != translations) {
-                                val points = WaterSpotStore.toJson(spots, reports)
+                            if (previous?.points != points || previous.translations != translations) {
                                 view.evaluateJavascript("window.updateSpots($points, $translations, ${JSONObject.quote(profile.id)})", null)
                             }
                             view.tag = state
@@ -269,6 +277,6 @@ private fun mapTranslations(resources: android.content.res.Resources): String = 
 }.toString()
 
 private data class MapRenderState(
-    val spots: List<WaterSpot>, val reports: List<SpotFeedback>,
+    val points: String,
     val translations: String, val filter: String, val adding: Boolean
 )
