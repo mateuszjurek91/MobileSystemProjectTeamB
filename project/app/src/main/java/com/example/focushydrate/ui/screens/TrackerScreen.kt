@@ -38,9 +38,7 @@ private val Ink = Color(0xFF145368)
 @Composable
 fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
     onRemoveWater: () -> Unit, onResetData: () -> Unit, onStatistics: () -> Unit, busy: Boolean = false) {
-    val fill by animateFloatAsState(
-        targetValue = if (goal > 0) (intake.toFloat() / goal).coerceIn(0f, 1f) else 0f,
-        animationSpec = tween(650), label = "Poziom wody")
+    val fill = if (goal > 0) (intake.toFloat() / goal).coerceIn(0f, 1f) else 0f
     var confirmReset by remember { mutableStateOf(false) }
     val addLabel = stringResource(R.string.add_water)
     val removeLabel = stringResource(R.string.remove_water)
@@ -104,11 +102,13 @@ fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
 
 @Composable
 private fun WaterBottle(fill: Float, modifier: Modifier = Modifier) {
+    val animatedFill = animateFloatAsState(fill, tween(650), label = "Water level")
     val description = stringResource(R.string.bottle_progress, (fill * 100).toInt())
     Canvas(modifier.semantics {
         contentDescription = description
         progressBarRangeInfo = ProgressBarRangeInfo(fill, 0f..1f)
     }) {
+        val waterFill = animatedFill.value
         val factor = minOf(size.width / 140f, size.height / 260f)
         scale(factor, factor, pivot = Offset.Zero) {
             val outline = Color(0xFF235D67)
@@ -130,8 +130,8 @@ private fun WaterBottle(fill: Float, modifier: Modifier = Modifier) {
             drawRoundRect(outline, Offset(48f, 20f), Size(44f, 10f), CornerRadius(2f), style = Stroke(2f))
             drawPath(bottle, Color(0xFFDCF5FA).copy(alpha = 0.38f))
             clipPath(bottle) {
-                val waterTop = 251f - 215f * fill
-                if (fill > 0f) {
+                val waterTop = 251f - 215f * waterFill
+                if (waterFill > 0f) {
                     drawRect(Brush.verticalGradient(listOf(Color(0xFF32BDED), Color(0xFF0878A6)),
                         startY = waterTop, endY = 253f), Offset(12f, waterTop), Size(116f, 255f - waterTop))
                     drawRect(Color(0xFF8CE3FF).copy(alpha = 0.65f), Offset(12f, waterTop), Size(116f, 6f))
