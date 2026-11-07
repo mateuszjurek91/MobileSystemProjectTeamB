@@ -43,14 +43,40 @@ fun logWater(history: List<DailyIntake>, day: String, delta: Int, goal: Int = 20
     return (history.filterNot { it.day == day } + DailyIntake(day, amount, previous?.goal ?: goal)).sortedBy { it.day }
 }
 fun historyPoints(history: List<DailyIntake>, range: HistoryRange, today: String): List<ChartPoint> {
-    val start = when (range) {
-        HistoryRange.WEEK -> Days.shift(today, -6)
-        HistoryRange.MONTH -> Days.shift(today, -29)
-        HistoryRange.YEAR -> Days.shift(today, -364)
-        HistoryRange.ALL -> history.minOfOrNull { it.day }?.coerceAtMost(today) ?: today
+    val start = rangeStart(history, range, today)
+    val amounts = history.filter { it.day in start..today }.associate { it.day to it.millilitres }
+    if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) {
+        return Days.between(start, today).map { ChartPoint(it, (amounts[it] ?: 0).toLong()) }
     }
-    val amounts = history.filter { it.day <= today }.associate { it.day to it.millilitres }
-    val daily = Days.between(start, today).map { ChartPoint(it, (amounts[it] ?: 0).toLong()) }
-    return if (range == HistoryRange.YEAR || range == HistoryRange.ALL) daily.groupBy { it.day.take(7) }
-        .map { (month, entries) -> ChartPoint("$month-01", entries.sumOf { it.millilitres }) } else daily
+    val totals = mutableMapOf<String, Long>()
+    for ((day, amount) in amounts) {
+        val month = day.take(7)
+        totals[month] = totals.getOrDefault(month, 0L) + amount
+    }
+    val cursor = Days.calendar(Days.monthStart(start))
+    val formatter = SimpleDateFormat("yyyy-MM", Locale.ROOT)
+    val last = today.take(7)
+    return buildList {
+        while (true) {
+            val month = formatter.format(cursor.time)
+            add(ChartPoint("$month-01", totals.getOrDefault(month, 0L)))
+            if (month == last) break
+            cursor.add(Calendar.MONTH, 1)
+        }
+    }
+}
+
+fun rangeStart(history: List<DailyIntake>, range: HistoryRange, today: String): String = when (range) {
+    HistoryRange.WEEK -> Days.shift(today, -6)
+    HistoryRange.MONTH -> Days.shift(today, -29)
+    HistoryRange.YEAR -> Days.shift(today, -364)
+    HistoryRange.ALL -> history.minOfOrNull { it.day }?.coerceAtMost(today) ?: today
+}
+
+fun inclusiveDayCount(start: String, end: String): Int {
+    val parser = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+        timeZone = java.util.TimeZone.getTimeZone("UTC")
+    }
+    val elapsed = requireNotNull(parser.parse(end)).time - requireNotNull(parser.parse(start)).time
+    return java.util.concurrent.TimeUnit.MILLISECONDS.toDays(elapsed).toInt() + 1
 }

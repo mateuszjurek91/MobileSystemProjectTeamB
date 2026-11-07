@@ -46,10 +46,10 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
     var month by rememberSaveable { mutableStateOf(Days.monthStart(today)) }
     var selected by rememberSaveable { mutableStateOf(today) }
     var range by rememberSaveable { mutableStateOf(HistoryRange.WEEK) }
-    val days = Days.monthDays(month)
+    val days = remember(month) { Days.monthDays(month) }
     val offset = (Days.calendar(month).get(Calendar.DAY_OF_WEEK) + 5) % 7
     val slots: List<String?> = List(offset) { null } + days
-    val lookup = history.associateBy { it.day }
+    val lookup = remember(history) { history.associateBy { it.day } }
     val points = remember(history, range, today) { historyPoints(history, range, today) }
     val total = points.sumOf { it.millilitres }
     val number = NumberFormat.getIntegerInstance(locale)
@@ -125,11 +125,9 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
             }
         }
         val totalLabel = stringResource(R.string.total_intake, number.format(total))
-        val periodStart = when(range) {
-            HistoryRange.WEEK -> Days.shift(today, -6); HistoryRange.MONTH -> Days.shift(today, -29)
-            HistoryRange.YEAR -> Days.shift(today, -364); HistoryRange.ALL -> history.minOfOrNull { it.day } ?: today
+        val dayCount = remember(history, range, today) {
+            inclusiveDayCount(rangeStart(history, range, today), today)
         }
-        val dayCount = Days.between(periodStart, today).size.coerceAtLeast(1)
         val averageLabel = stringResource(R.string.daily_average, (total / dayCount).toInt())
         Text(totalLabel, fontWeight = FontWeight.SemiBold)
         Text(averageLabel, style = MaterialTheme.typography.bodyMedium)
