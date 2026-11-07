@@ -53,7 +53,7 @@ fun FeedbackDialog(spot: WaterSpot, reports: List<SpotFeedback>, profile: Accoun
                 val recent = reports.filter { it.spotId == spot.id }.sortedByDescending { it.createdAt }
                 if (recent.isEmpty()) Text(stringResource(R.string.feedback_empty))
                 recent.take(10).forEach { report ->
-                    Text("${report.authorName} Â· ${stringResource(report.status.label())}", style = MaterialTheme.typography.bodyMedium)
+                    Text("${report.authorName} · ${stringResource(report.status.label())}", style = MaterialTheme.typography.bodyMedium)
                     if (report.note.isNotBlank()) Text(report.note, style = MaterialTheme.typography.bodySmall)
                     Text(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale).format(Date(report.createdAt)),
                         style = MaterialTheme.typography.labelSmall)

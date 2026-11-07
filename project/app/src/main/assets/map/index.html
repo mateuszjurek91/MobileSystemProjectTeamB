@@ -29,16 +29,22 @@
   new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById('map'));
   const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
-  let loaded = false;
-  let tileErrorReported = false;
-  tiles.on('tileload', () => {
-    if (!loaded) { loaded = true; send('loaded'); }
   });
+  let tileState = 'loading';
+  let batchFailed = false;
+  function reportTiles(state) {
+    if (tileState === state) return;
+    tileState = state;
+    send(state);
+  }
+  tiles.on('loading', () => { batchFailed = false; });
   tiles.on('tileerror', () => {
-    if (!tileErrorReported) { tileErrorReported = true; send('error'); }
+    batchFailed = true;
+    reportTiles('error');
   });
-  setTimeout(() => { if (!loaded && !tileErrorReported) send('error'); }, 15000);
+  tiles.on('load', () => { if (!batchFailed) reportTiles('loaded'); });
+  tiles.addTo(map);
+  setTimeout(() => { if (tileState === 'loading') reportTiles('error'); }, 15000);
 
   // Synthetic polygons for demonstrating the filter, not municipal boundaries or water reports.
   const areas = [
