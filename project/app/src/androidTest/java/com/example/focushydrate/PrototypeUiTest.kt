@@ -36,7 +36,7 @@ class PrototypeUiTest {
         compose.onNodeWithText(context.getString(R.string.username)).performScrollTo().performTextInput("UI Tester")
         compose.onNodeWithText(context.getString(R.string.password)).performScrollTo().performTextInput("TestPassword123")
         compose.onNodeWithText(context.getString(R.string.confirm_password)).performScrollTo().performTextInput("TestPassword123")
-        compose.onNodeWithContentDescription(context.getString(R.string.email_consent)).performScrollTo().assertIsOff().performClick()
+        compose.onNodeWithText(context.getString(R.string.email_consent)).performScrollTo().assertIsOff().performClick()
         compose.onNode(hasText(context.getString(R.string.create_account)) and hasClickAction()).performScrollTo().performClick()
         compose.waitUntil(30_000) { authenticated.get() != null }
         assertEquals("ui@example.invalid", authenticated.get()?.email)

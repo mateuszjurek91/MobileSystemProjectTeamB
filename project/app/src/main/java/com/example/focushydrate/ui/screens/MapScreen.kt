@@ -184,6 +184,7 @@ fun MapScreen(profile: AccountProfile) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.point_body))
                     OutlinedTextField(value = pointName, onValueChange = { if (it.length <= 80) pointName = it },
+                        colors = inputColors(),
                         enabled = !saving, label = { Text(stringResource(R.string.point_name)) }, singleLine = true)
                     Text(java.lang.String.format(java.util.Locale.US, "%.5f, %.5f", point.first, point.second),
                         style = MaterialTheme.typography.bodySmall)

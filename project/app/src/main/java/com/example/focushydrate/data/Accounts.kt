@@ -94,7 +94,7 @@ class LocalAccounts(private val storage: AccountStorage) {
     private fun validate(email: String, username: String, password: String?): AccountIssue? = when {
         email.length > 254 || !Regex("^[^\\s@]+@[^\\s@.]+(?:\\.[^\\s@.]+)+$").matches(email) -> AccountIssue.EMAIL
         username.length !in 2..30 -> AccountIssue.USERNAME
-        password != null && password.length !in 8..128 -> AccountIssue.PASSWORD
+        password != null && password.length <= 8 -> AccountIssue.PASSWORD
         else -> null
     }
 }

@@ -45,6 +45,7 @@ fun FeedbackDialog(spot: WaterSpot, reports: List<SpotFeedback>, profile: Accoun
                     }
                 }
                 OutlinedTextField(note, { if (it.length <= 500) note = it }, enabled = !saving,
+                    colors = inputColors(),
                     label = { Text(stringResource(R.string.feedback_note)) }, minLines = 2,
                     supportingText = { Text("${note.length}/500") })
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

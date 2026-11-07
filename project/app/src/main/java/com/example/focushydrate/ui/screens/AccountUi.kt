@@ -2,6 +2,9 @@ package com.example.focushydrate.ui.screens
 
 import android.content.res.Resources
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Visibility
@@ -31,6 +34,7 @@ fun Resources.accountMessage(issue: AccountIssue): String = getString(when (issu
 fun PasswordField(value: String, onChange: (String) -> Unit, label: String, enabled: Boolean = true) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(value, onChange, modifier = Modifier.fillMaxWidth(), label = { Text(label) },
+        colors = inputColors(),
         enabled = enabled, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = { IconButton(onClick = { visible = !visible }) {
@@ -46,3 +50,23 @@ fun LanguagePicker(language: String, onLanguage: (String) -> Unit, enabled: Bool
         FilterChip(selected = language == "pl", enabled = enabled, onClick = { onLanguage("pl") }, label = { Text("Polski") })
     }
 }
+
+@Composable
+internal fun EmailConsent(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().toggleable(checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange)
+            .heightIn(min = 48.dp).padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Checkbox(checked, onCheckedChange = null, enabled = enabled)
+        Text(stringResource(R.string.email_consent))
+    }
+}
+
+@Composable
+internal fun inputColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    errorContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+)

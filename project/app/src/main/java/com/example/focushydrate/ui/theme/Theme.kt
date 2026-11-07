@@ -11,6 +11,7 @@ private val HydrationColors = lightColorScheme(
     secondary = Color(0xFF4C95AA),
     secondaryContainer = Color(0xFFCEEFFF),
     onSecondaryContainer = Color(0xFF145368),
+    surfaceContainerLow = Color(0xFFE7F5FC),
     surfaceContainerHigh = Color(0xFFD9F0FC),
     surfaceContainerHighest = Color(0xFFCDEEFF),
     surfaceContainer = Color(0xFFD9F0FC),

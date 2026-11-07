@@ -20,6 +20,7 @@ fun WaterCheckerScreen() {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
+            colors = inputColors(),
             value = cityQuery,
             onValueChange = { cityQuery = it; searchTriggered = false },
             label = { Text("Enter city (e.g., Łódź, Warsaw)") },

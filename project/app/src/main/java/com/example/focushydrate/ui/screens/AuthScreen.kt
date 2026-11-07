@@ -36,7 +36,6 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
     var consent by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val consentLabel = stringResource(R.string.email_consent)
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -47,18 +46,17 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
         Text(stringResource(R.string.welcome), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(if (registration) R.string.create_account else R.string.sign_in), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), enabled = !busy,
+            colors = inputColors(),
             label = { Text(stringResource(R.string.email)) }, singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
         if (registration) OutlinedTextField(username, { if (it.length <= 30) username = it }, Modifier.fillMaxWidth(),
+            colors = inputColors(),
             enabled = !busy, label = { Text(stringResource(R.string.username)) }, singleLine = true)
-        PasswordField(password, { if (it.length <= 128) password = it }, stringResource(R.string.password), !busy)
+        PasswordField(password, { password = it }, stringResource(R.string.password), !busy)
         if (registration) {
-            Text(stringResource(R.string.password_hint), style = MaterialTheme.typography.bodySmall)
-            PasswordField(confirm, { if (it.length <= 128) confirm = it }, stringResource(R.string.confirm_password), !busy)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(consent, { consent = it }, enabled = !busy, modifier = Modifier.semantics { contentDescription = consentLabel })
-                Text(stringResource(R.string.email_consent), Modifier.weight(1f))
-            }
+            Text(stringResource(R.string.error_password), style = MaterialTheme.typography.bodySmall)
+            PasswordField(confirm, { confirm = it }, stringResource(R.string.confirm_password), !busy)
+            EmailConsent(consent, !busy) { consent = it }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = {

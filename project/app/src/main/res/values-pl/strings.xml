@@ -59,7 +59,6 @@
     <string name="email_consent">Chcę otrzymywać powiadomienia e-mail</string>
     <string name="local_account_note">Lokalny prototyp: konta pozostają na tym urządzeniu. E-maile nie są wysyłane, a adresy nie są weryfikowane. Użyj danych testowych.</string>
     <string name="welcome">Śledź ilość wypitej wody</string>
-    <string name="password_hint">Co najmniej 8 znaków</string>
     <string name="change_username">Zmień nazwę użytkownika</string>
     <string name="change_email">Zmień e-mail</string>
     <string name="change_password">Zmień hasło</string>
@@ -70,7 +69,7 @@
     <string name="profile_saved">Zmiany zapisane</string>
     <string name="error_email">Wpisz poprawny adres e-mail.</string>
     <string name="error_username">Nazwa musi mieć od 2 do 30 znaków.</string>
-    <string name="error_password">Hasło musi mieć od 8 do 128 znaków.</string>
+    <string name="error_password">Hasło musi mieć więcej niż 8 znaków.</string>
     <string name="error_confirm">Hasła nie są identyczne.</string>
     <string name="error_exists">Konto z tym adresem już istnieje na urządzeniu.</string>
     <string name="error_credentials">Nieprawidłowy e-mail lub hasło.</string>

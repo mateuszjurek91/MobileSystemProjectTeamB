@@ -32,7 +32,8 @@ class AccountsTest {
         val accounts = LocalAccounts(MemoryStorage())
         assertEquals(AccountResult.Failure(AccountIssue.EMAIL), accounts.register("not-an-email", "Test", "password123", false))
         assertEquals(AccountResult.Failure(AccountIssue.USERNAME), accounts.register("a@b.com", " ", "password123", false))
-        assertEquals(AccountResult.Failure(AccountIssue.PASSWORD), accounts.register("a@b.com", "Test", "short", false))
+        assertEquals(AccountResult.Failure(AccountIssue.PASSWORD), accounts.register("a@b.com", "Test", "12345678", false))
+        assertTrue(accounts.register("a@b.com", "Test", "123456789", false) is AccountResult.Success)
     }
     @Test fun passwordChangeRejectsWrongCurrentPasswordAndInvalidatesOldPassword() {
         val accounts = LocalAccounts(MemoryStorage())

@@ -37,7 +37,6 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
     var notice by remember { mutableStateOf<String?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val consentLabel = stringResource(R.string.email_consent)
     val resources = LocalResources.current
     fun edit(field: String) {
         editing = field; value = when(field) { "username" -> profile.username; "email" -> profile.email; else -> "" }
@@ -79,11 +78,8 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
                 TextButton(enabled = !busy && !dataBusy, onClick = { edit("username") }) { Text(stringResource(R.string.change_username)) }
                 TextButton(enabled = !busy && !dataBusy, onClick = { edit("email") }) { Text(stringResource(R.string.change_email)) }
                 TextButton(enabled = !busy && !dataBusy, onClick = { edit("password") }) { Text(stringResource(R.string.change_password)) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(profile.emailNotifications, modifier = Modifier.semantics { contentDescription = consentLabel }, enabled = !busy && !dataBusy, onCheckedChange = { checked ->
-                        perform { accounts.update(profile.id, consent = checked) }
-                    })
-                    Text(stringResource(R.string.email_consent), Modifier.weight(1f))
+                EmailConsent(profile.emailNotifications, !busy && !dataBusy) { checked ->
+                    perform { accounts.update(profile.id, consent = checked) }
                 }
                 Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
             }
@@ -114,6 +110,7 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (field == "delete") Text(stringResource(R.string.delete_account_body))
                     if (field == "username" || field == "email") OutlinedTextField(value, { value = it },
+                        colors = inputColors(),
                         enabled = !busy && !dataBusy, singleLine = true, label = { Text(stringResource(if (field == "email") R.string.email else R.string.username)) },
                         keyboardOptions = KeyboardOptions(keyboardType = if (field == "email") KeyboardType.Email else KeyboardType.Text))
                     if (field != "username") PasswordField(currentPassword, { currentPassword = it }, stringResource(R.string.current_password), !busy)
