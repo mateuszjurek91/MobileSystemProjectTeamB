@@ -42,4 +42,33 @@ class HydrationTest {
         val reset = logWater(history, "2026-11-06", -1000)
         assertEquals(1750, reset.first().millilitres); assertEquals(0, reset.last().millilitres)
     }
+
+    @Test fun optimizedRangesMatchDailyReferenceIncludingEmptyMonthsAndFutureEntries() {
+        val today = "2026-11-07"
+        val history = (0..1095 step 17).map { offset ->
+            DailyIntake(Days.shift(today, -offset), offset * 31 % 3500)
+        } + DailyIntake("2027-01-01", 2000)
+        for (range in HistoryRange.entries) {
+            val start = rangeStart(history, range, today)
+            val amounts = history.filter { it.day <= today }.associate { it.day to it.millilitres.toLong() }
+            val daily = Days.between(start, today).map { ChartPoint(it, amounts[it] ?: 0L) }
+            val expected = if (range == HistoryRange.ALL || range == HistoryRange.YEAR) {
+                daily.groupBy { it.day.take(7) }.map { (month, entries) ->
+                    ChartPoint("$month-01", entries.sumOf { it.millilitres })
+                }
+            } else daily
+            assertEquals(range.name, expected, historyPoints(history, range, today))
+        }
+    }
+
+    @Test fun averageCountsCalendarDaysAcrossDaylightSavingAndLeapDay() {
+        val previous = java.util.TimeZone.getDefault()
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Europe/Warsaw"))
+            assertEquals(3, inclusiveDayCount("2026-03-28", "2026-03-30"))
+            assertEquals(3, inclusiveDayCount("2026-10-24", "2026-10-26"))
+            assertEquals(3, inclusiveDayCount("2024-02-28", "2024-03-01"))
+            assertEquals(1, inclusiveDayCount("2026-11-07", "2026-11-07"))
+        } finally { java.util.TimeZone.setDefault(previous) }
+    }
 }
