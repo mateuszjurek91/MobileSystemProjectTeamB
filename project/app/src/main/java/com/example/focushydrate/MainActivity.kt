@@ -28,6 +28,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.focushydrate.data.*
 import com.example.focushydrate.localization.AppLanguage
+import com.example.focushydrate.reminders.DrinkReminders
+import com.example.focushydrate.reminders.ReminderStore
 import com.example.focushydrate.ui.navigation.Screen
 import com.example.focushydrate.ui.screens.*
 import com.example.focushydrate.ui.theme.FocusHydrateTheme
@@ -39,16 +41,28 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    private var trackerRequest by mutableIntStateOf(0)
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra("open_tracker", false)) {
+            trackerRequest++
+            intent.removeExtra("open_tracker")
+        }
+    }
     override fun attachBaseContext(newBase: Context) { super.attachBaseContext(AppLanguage.wrap(newBase)) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { FocusHydrateTheme { Surface { HydrationApp() } } }
+        if (intent.getBooleanExtra("open_tracker", false)) {
+            trackerRequest++
+            intent.removeExtra("open_tracker")
+        }
+        setContent { FocusHydrateTheme { Surface { HydrationApp(trackerRequest) } } }
     }
 }
 
 @Composable
-fun HydrationApp() {
+fun HydrationApp(trackerRequest: Int = 0) {
     val context = LocalContext.current
     val accounts = remember { LocalAccounts(PreferencesAccountStorage(context.applicationContext)) }
     var profile by remember { mutableStateOf<AccountProfile?>(null) }
@@ -62,6 +76,9 @@ fun HydrationApp() {
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { loadError = true }
         finally { loading = false }
+    }
+    LaunchedEffect(loading, profile?.id) {
+        if (!loading) withContext(Dispatchers.IO) { DrinkReminders.refresh(context.applicationContext) }
     }
     val language = AppLanguage.current(context)
     val onLanguage: (String) -> Unit = { next ->
@@ -78,7 +95,7 @@ fun HydrationApp() {
             }
             profile == null -> AuthScreen(accounts, language, onLanguage) { profile = it }
             else -> profile?.let { active ->
-                key(active.id) { AccountHome(active, accounts, language, onLanguage) { profile = it } }
+                key(active.id) { AccountHome(active, accounts, language, onLanguage, trackerRequest) { profile = it } }
             }
         }
     }
@@ -86,7 +103,7 @@ fun HydrationApp() {
 
 @Composable
 private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, language: String,
-    onLanguage: (String) -> Unit, onProfile: (AccountProfile?) -> Unit) {
+    onLanguage: (String) -> Unit, trackerRequest: Int, onProfile: (AccountProfile?) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val store = remember { HydrationStore(context.applicationContext) }
@@ -97,6 +114,12 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
     var busy by remember { mutableStateOf(false) }
     var currentScreen by rememberSaveable { mutableStateOf(Screen.Tracker) }
     var statistics by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(trackerRequest) {
+        if (trackerRequest > 0) {
+            currentScreen = Screen.Tracker
+            statistics = false
+        }
+    }
     var today by remember { mutableStateOf(Days.key()) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(profile.id, retry) {
@@ -114,8 +137,15 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
                 val day = Days.key(); today = day
                 val previous = history.find { it.day == day }?.millilitres ?: 0
                 val next = logWater(history, day, if (reset) -previous else delta ?: 0)
-                if (withContext(Dispatchers.IO) { store.save(profile.id, next) }) { history = next; error = null }
-                else error = resources.getString(R.string.error_storage)
+                val drinkAt = if (!reset && (delta ?: 0) > 0) System.currentTimeMillis() else null
+                val saved = withContext(Dispatchers.IO) { store.save(profile.id, next, drinkAt) }
+                if (saved) {
+                    history = next
+                    error = null
+                    withContext(Dispatchers.IO) { DrinkReminders.refresh(context.applicationContext) }
+                } else {
+                    error = resources.getString(R.string.error_storage)
+                }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { error = resources.getString(R.string.error_storage) }
             finally { busy = false }
@@ -138,7 +168,8 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
                 Screen.Settings -> SettingsScreen(2000, profile, accounts, language, onLanguage, onProfile,
                     onDelete = { password ->
                         if (!accounts.verifyPassword(profile.id, password)) AccountResult.Failure(AccountIssue.CURRENT_PASSWORD)
-                        else if (!store.delete(profile.id) || !WaterSpotStore(context.applicationContext).deleteAccountData(profile.id))
+                        else if (!store.delete(profile.id) || !WaterSpotStore(context.applicationContext).deleteAccountData(profile.id) ||
+                            !ReminderStore(context.applicationContext).delete(profile.id))
                             AccountResult.Failure(AccountIssue.STORAGE)
                         else accounts.delete(profile.id, password)
                     }, onResetData = { changeWater(null, reset = true) }, dataBusy = busy)

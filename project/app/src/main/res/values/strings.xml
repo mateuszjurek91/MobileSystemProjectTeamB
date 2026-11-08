@@ -115,4 +115,21 @@
     <string name="demo_popup">This colour does not describe actual water quality.</string>
     <string name="zoom_in">Zoom in</string>
     <string name="zoom_out">Zoom out</string>
+    <string name="drink_reminders">Drinking reminders</string>
+    <string name="reminders_enable">Enable reminders</string>
+    <string name="reminder_start">From</string>
+    <string name="reminder_end">Until</string>
+    <string name="reminder_time_hint">Use 24-hour time, e.g. 08:00 and 22:00.</string>
+    <string name="reminder_interval">Remind me every</string>
+    <string name="reminder_minutes">%1$d min</string>
+    <string name="reminder_days">Days</string>
+    <string name="reminder_timing_note">Adding water restarts the interval. Android may delay reminders to save battery. Reminders work for the signed-in account.</string>
+    <string name="reminders_blocked">Notifications are blocked. Allow them in Android settings to receive reminders.</string>
+    <string name="reminder_system_settings">Open notification settings</string>
+    <string name="reminders_save">Save reminders</string>
+    <string name="reminders_saved">Reminder settings saved</string>
+    <string name="reminder_invalid">Enter valid times in HH:mm format, with the start before the end, and choose at least one day.</string>
+    <string name="reminder_channel">Drinking reminders</string>
+    <string name="reminder_title">Time for some water</string>
+    <string name="reminder_body">Take a water break and record it in HydroTracker.</string>
 </resources>

@@ -115,4 +115,21 @@
     <string name="demo_popup">Ten kolor nie opisuje rzeczywistej jakości wody.</string>
     <string name="zoom_in">Przybliż</string>
     <string name="zoom_out">Oddal</string>
+    <string name="drink_reminders">Przypomnienia o piciu</string>
+    <string name="reminders_enable">Włącz przypomnienia</string>
+    <string name="reminder_start">Od</string>
+    <string name="reminder_end">Do</string>
+    <string name="reminder_time_hint">Użyj czasu 24-godzinnego, np. 08:00 i 22:00.</string>
+    <string name="reminder_interval">Przypominaj co</string>
+    <string name="reminder_minutes">%1$d min</string>
+    <string name="reminder_days">Dni</string>
+    <string name="reminder_timing_note">Dodanie wody rozpoczyna odstęp od nowa. Android może opóźnić przypomnienia, aby oszczędzać baterię. Przypomnienia dotyczą zalogowanego konta.</string>
+    <string name="reminders_blocked">Powiadomienia są zablokowane. Zezwól na nie w ustawieniach Androida, aby otrzymywać przypomnienia.</string>
+    <string name="reminder_system_settings">Otwórz ustawienia powiadomień</string>
+    <string name="reminders_save">Zapisz przypomnienia</string>
+    <string name="reminders_saved">Zapisano ustawienia przypomnień</string>
+    <string name="reminder_invalid">Wpisz poprawne godziny w formacie GG:mm, z początkiem przed końcem, i wybierz przynajmniej jeden dzień.</string>
+    <string name="reminder_channel">Przypomnienia o piciu</string>
+    <string name="reminder_title">Czas na wodę</string>
+    <string name="reminder_body">Zrób przerwę na wodę i zapisz ją w HydroTracker.</string>
 </resources>

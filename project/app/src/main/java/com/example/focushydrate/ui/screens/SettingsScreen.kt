@@ -70,6 +70,7 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
                 Text("$goal ml", fontSize = 28.sp, fontWeight = FontWeight.Bold)
             }
         }
+        ReminderSettings(profile.id, !busy && !dataBusy)
         Card(shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.account), style = MaterialTheme.typography.titleMedium)
