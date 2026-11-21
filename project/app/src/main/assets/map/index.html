@@ -89,7 +89,44 @@
       });
     }
   };
+  const clusterLayer = L.layerGroup().addTo(map);
+  let fittedSpots = false;
+  let pointCountLabel = "";
+  function groupNearbySpots() {
+    clusterLayer.clearLayers();
+    spotLayer.clearLayers();
+    const groups = [];
+    for (const entry of markers.values()) {
+      const {marker} = entry;
+      const position = map.project(marker.getLatLng());
+      const group = groups.find(item => item.position.distanceTo(position) < 42);
+      if (group) group.markers.push(entry);
+      else groups.push({position, markers:[entry]});
+    }
+    for (const {markers: nearby} of groups) {
+      if (nearby.length === 1) {
+        spotLayer.addLayer(nearby[0].marker);
+        continue;
+      }
+      const list = document.createElement('div');
+      for (const {marker, makePopup} of nearby) {
+        const details = document.createElement('details');
+        const heading = document.createElement('summary');
+        heading.textContent = marker.options.title;
+        details.append(heading, makePopup());
+        list.append(details);
+      }
+      const label = pointCountLabel.replace("%1$d", nearby.length);
+      L.marker(nearby[0].marker.getLatLng(), {
+        title:label, alt:label,
+        icon:L.divIcon({html:'<div class="spot">' + nearby.length + '</div>',
+          className:'', iconSize:[36,36], iconAnchor:[18,18]})
+      }).bindPopup(list).addTo(clusterLayer).getElement().setAttribute("aria-label", label);
+    }
+  }
+  map.on('zoomend', groupNearbySpots);
   window.updateSpots = (spots, text, accountId) => {
+      pointCountLabel = text.pointCount;
       const ids = new Set(spots.map(spot => spot.id));
       for (const [id, entry] of markers) {
         if (!ids.has(id)) {
@@ -105,23 +142,33 @@
           icon:L.divIcon({html:'<div class="spot">💧</div>',className:'',iconSize:[36,36],iconAnchor:[18,18]}),
           title:spot.name, alt:spot.name
         }).addTo(spotLayer);
-        const popup = document.createElement('div');
-        const title = document.createElement('strong');
-        title.textContent = spot.name;
-        const remove = document.createElement('button');
-        remove.textContent = text.remove;
-        remove.addEventListener('click', () => send('delete', {id:spot.id}));
-        const feedback = document.createElement('button');
-        feedback.textContent = text.feedback + ' (' + spot.feedbackCount + ')';
-        feedback.addEventListener('click', () => send('feedback', {id:spot.id}));
-        popup.append(title, document.createElement('br'), text.pointNote, document.createElement('br'));
-        if (spot.lastFeedback) popup.append(text[spot.lastFeedback], document.createElement('br'));
-        popup.append(feedback);
-        if (!spot.ownerId || spot.ownerId === accountId) popup.append(document.createElement('br'), remove);
-        if (existing) marker.setPopupContent(popup);
-        else marker.bindPopup(popup);
-        markers.set(spot.id, {marker, signature});
+        const makePopup = () => {
+          const popup = document.createElement('div');
+          const title = document.createElement('strong');
+          title.textContent = spot.name;
+          const remove = document.createElement('button');
+          remove.textContent = text.remove;
+          remove.addEventListener('click', () => send('delete', {id:spot.id}));
+          const feedback = document.createElement('button');
+          feedback.textContent = text.feedback + ' (' + spot.feedbackCount + ')';
+          feedback.addEventListener('click', () => send('feedback', {id:spot.id}));
+          popup.append(title, document.createElement('br'), text.pointNote, document.createElement('br'));
+          if (spot.lastFeedback) popup.append(text[spot.lastFeedback], document.createElement('br'));
+          popup.append(feedback);
+          if (!spot.ownerId || spot.ownerId === accountId) popup.append(document.createElement('br'), remove);
+          return popup;
+        };
+        if (existing) marker.setPopupContent(makePopup());
+        else marker.bindPopup(makePopup());
+        markers.set(spot.id, {marker, signature, makePopup});
       });
+      if (!fittedSpots && spots.length) {
+        fittedSpots = true;
+        map.fitBounds(spots.map(spot => [spot.latitude, spot.longitude]), {
+          padding:[48, 48], maxZoom:14
+        });
+      }
+      groupNearbySpots();
   };
   map.on('click', event => {
     if (!adding) return;

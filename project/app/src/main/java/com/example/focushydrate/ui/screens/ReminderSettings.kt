@@ -79,7 +79,7 @@ fun ReminderSettings(accountId: String, enabled: Boolean = true) {
         catch (e: Exception) { error = resources.getString(R.string.error_load) }
     }
     Card {
-        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.drink_reminders), style = MaterialTheme.typography.titleMedium)
             if (plan == null) {
                 if (error == null) CircularProgressIndicator()
@@ -136,7 +136,15 @@ fun ReminderSettings(accountId: String, enabled: Boolean = true) {
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (saved) Text(stringResource(R.string.reminders_saved))
-                Button(enabled = editable, onClick = {
+                val hasChanges = plan?.let { previous ->
+                    wantsReminders != previous.enabled || (wantsReminders && (
+                        parseReminderTime(start) != previous.startMinute ||
+                        parseReminderTime(end) != previous.endMinute ||
+                        interval != previous.intervalMinutes ||
+                        days.toSet() != previous.weekdays
+                    ))
+                } ?: false
+                Button(enabled = editable && hasChanges, onClick = {
                     val previous = requireNotNull(plan)
                     val startMinute = parseReminderTime(start)
                     val endMinute = parseReminderTime(end)

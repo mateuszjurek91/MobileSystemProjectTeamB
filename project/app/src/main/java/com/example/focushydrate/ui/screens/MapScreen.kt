@@ -62,6 +62,7 @@ fun MapScreen(profile: AccountProfile) {
     var feedbackSpot by remember { mutableStateOf<WaterSpot?>(null) }
     val translations = remember(resources, resources.configuration.locales[0]) { mapTranslations(resources) }
     var message by remember { mutableStateOf<String?>(null) }
+    var demo by rememberSaveable { mutableStateOf(false) }
     var filter by rememberSaveable { mutableStateOf("all") }
     var adding by rememberSaveable { mutableStateOf(false) }
     var selectedPoint by remember { mutableStateOf<Pair<Double, Double>?>(null) }
@@ -89,19 +90,39 @@ fun MapScreen(profile: AccountProfile) {
         }
     }
 
+    val filterHidesUserSpots = demo && filter != "all" && !adding
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.map_title), Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-            Text(stringResource(R.string.point_count, spots.size), style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.point_count, if (filterHidesUserSpots) 0 else spots.size), style = MaterialTheme.typography.labelMedium)
         }
-        Text(stringResource(R.string.demo_note),
-            Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.bodySmall)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("all" to stringResource(R.string.filter_all), "drinkable" to stringResource(R.string.filter_drinkable), "not_drinkable" to stringResource(R.string.filter_not_drinkable)).forEach { (value, title) ->
-                FilterChip(selected = filter == value, onClick = { filter = value }, label = { Text(title) })
+            FilterChip(selected = demo, onClick = { demo = !demo },
+                label = { Text(stringResource(R.string.demo_areas)) })
+            if (demo) {
+                listOf("all" to R.string.filter_all, "drinkable" to R.string.filter_drinkable,
+                    "not_drinkable" to R.string.filter_not_drinkable).forEach { (value, title) ->
+                    FilterChip(selected = filter == value, onClick = { filter = value },
+                        label = { Text(stringResource(title)) })
+                }
             }
+        }
+        if (demo) Text(stringResource(R.string.demo_note),
+            Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.bodySmall)
+        if (loaded && filterHidesUserSpots) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.map_no_filtered_points), Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { filter = "all" }) {
+                    Text(stringResource(R.string.map_show_all))
+                }
+            }
+        } else if (loaded && spots.isEmpty() && !adding) {
+            Text(stringResource(R.string.map_no_points), Modifier.padding(horizontal = 20.dp),
+                style = MaterialTheme.typography.bodySmall)
         }
         message?.let { text ->
             Text(text, Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -165,12 +186,13 @@ fun MapScreen(profile: AccountProfile) {
                         }
                     },
                     update = { view ->
-                        val points = pointsJson
+                        val points = pointsJson?.let { if (filterHidesUserSpots) "[]" else it }
                         if (ready && loaded && points != null) {
                             val previous = view.tag as? MapRenderState
-                            val state = MapRenderState(points, translations, filter, adding)
-                            if (previous?.filter != filter || previous.adding != adding || previous.translations != translations) {
-                                view.evaluateJavascript("window.updateControls('$filter', $adding, $translations)", null)
+                            val areaFilter = if (demo) filter else "hidden"
+                            val state = MapRenderState(points, translations, areaFilter, adding)
+                            if (previous?.filter != areaFilter || previous.adding != adding || previous.translations != translations) {
+                                view.evaluateJavascript("window.updateControls('$areaFilter', $adding, $translations)", null)
                             }
                             if (previous?.points != points || previous.translations != translations) {
                                 view.evaluateJavascript("window.updateSpots($points, $translations, ${JSONObject.quote(profile.id)})", null)
@@ -268,6 +290,7 @@ private fun mapTranslations(resources: android.content.res.Resources): String = 
     put("demoRed", resources.getString(R.string.demo_red))
     put("demoPopup", resources.getString(R.string.demo_popup))
     put("pointNote", resources.getString(R.string.local_point_note))
+    put("pointCount", resources.getString(R.string.point_count))
     put("remove", resources.getString(R.string.delete_point_button))
     put("feedback", resources.getString(R.string.feedback))
     put("WORKING", resources.getString(R.string.feedback_working))

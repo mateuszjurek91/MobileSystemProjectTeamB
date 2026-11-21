@@ -3,6 +3,7 @@ package com.example.focushydrate.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -60,8 +61,35 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back)) }
             Text(stringResource(R.string.statistics), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
         }
+        Text(stringResource(R.string.line_chart), style = MaterialTheme.typography.titleLarge)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HistoryRange.entries.forEach { item ->
+                FilterChip(selected = range == item, onClick = { range = item }, label = { Text(stringResource(when(item) {
+                    HistoryRange.WEEK -> R.string.week; HistoryRange.MONTH -> R.string.month
+                    HistoryRange.YEAR -> R.string.year; HistoryRange.ALL -> R.string.all_time
+                })) })
+            }
+        }
+        val totalLabel = stringResource(R.string.total_intake, number.format(total))
+        val dayCount = remember(history, range, today) {
+            inclusiveDayCount(rangeStart(history, range, today), today)
+        }
+        val averageLabel = stringResource(R.string.daily_average, (total / dayCount).toInt())
+        Text(totalLabel, fontWeight = FontWeight.SemiBold)
+        Text(averageLabel, style = MaterialTheme.typography.bodyMedium)
+        val hasEntries = history.any { it.day >= rangeStart(history, range, today) && it.day <= today }
+        if (!hasEntries) Text(stringResource(R.string.no_entries_in_period))
+        val summary = stringResource(R.string.chart_summary, totalLabel, averageLabel)
+        IntakeChart(points, summary)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            val pattern = if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) "d MMM" else "MMM yyyy"
+            points.firstOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
+            points.lastOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
+        }
+        Text(stringResource(if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) R.string.chart_daily else R.string.chart_monthly),
+            style = MaterialTheme.typography.bodySmall)
         Card {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { month = Days.shiftMonth(month, -1) }) {
                         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.previous_month))
@@ -82,7 +110,7 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
                 slots.chunked(7).forEach { week ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         (week + List(7 - week.size) { null }).forEach { day ->
-                            if (day == null) Spacer(Modifier.weight(1f).height(60.dp))
+                            if (day == null) Spacer(Modifier.weight(1f).heightIn(min = 48.dp))
                             else {
                                 val entry = lookup[day]
                                 val fraction = entry?.progress ?: 0f
@@ -90,19 +118,24 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
                                 val label = if (future) stringResource(R.string.future_day)
                                     else if (entry == null) "$day: ${stringResource(R.string.no_entry)}"
                                     else stringResource(R.string.day_progress, day, entry.millilitres, entry.goal, (fraction * 100).toInt())
-                                Box(Modifier.weight(1f).height(60.dp).clip(RoundedCornerShape(10.dp))
-                                    .background(if (day == selected) Color(0xFFB0D9E9) else Color(0xFFE1F2FA))
+                                val shape = RoundedCornerShape(10.dp)
+                                val selection = if (day == selected) {
+                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape)
+                                } else Modifier
+                                Box(Modifier.weight(1f).heightIn(min = 48.dp).clip(shape)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                    .then(selection)
                                     .clickable(enabled = !future) { selected = day }
                                     .semantics { contentDescription = label }) {
                                     Canvas(Modifier.matchParentSize()) {
                                         drawRect(Color(0xFF68BDD1).copy(alpha = 0.65f),
                                             Offset(0f, size.height * (1 - fraction)), Size(size.width, size.height * fraction))
                                     }
-                                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
+                                    Column(Modifier.fillMaxWidth().align(Alignment.Center).padding(vertical = 4.dp), verticalArrangement = Arrangement.Center,
                                         horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(day.takeLast(2).toInt().toString(), fontSize = 14.sp,
                                             color = if (future) Color(0xFF6E8993) else Color(0xFF145368),
-                                            fontWeight = if (day == selected) FontWeight.Bold else FontWeight.Normal)
+                                            fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal)
                                         if (!future) Text(
                                             if (entry == null) "—" else "${(fraction * 100).toInt()}%",
                                             fontSize = 10.sp,
@@ -119,32 +152,6 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
                 else Text("$selected · ${stringResource(R.string.no_entry)}", style = MaterialTheme.typography.bodySmall)
             }
         }
-        Text(stringResource(R.string.line_chart), style = MaterialTheme.typography.titleLarge)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HistoryRange.entries.forEach { item ->
-                FilterChip(selected = range == item, onClick = { range = item }, label = { Text(stringResource(when(item) {
-                    HistoryRange.WEEK -> R.string.week; HistoryRange.MONTH -> R.string.month
-                    HistoryRange.YEAR -> R.string.year; HistoryRange.ALL -> R.string.all_time
-                })) })
-            }
-        }
-        val totalLabel = stringResource(R.string.total_intake, number.format(total))
-        val dayCount = remember(history, range, today) {
-            inclusiveDayCount(rangeStart(history, range, today), today)
-        }
-        val averageLabel = stringResource(R.string.daily_average, (total / dayCount).toInt())
-        Text(totalLabel, fontWeight = FontWeight.SemiBold)
-        Text(averageLabel, style = MaterialTheme.typography.bodyMedium)
-        if (history.isEmpty()) Text(stringResource(R.string.no_history))
-        val summary = stringResource(R.string.chart_summary, totalLabel, averageLabel)
-        IntakeChart(points, summary)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            val pattern = if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) "d MMM" else "MMM yyyy"
-            points.firstOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
-            points.lastOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
-        }
-        Text(stringResource(if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) R.string.chart_daily else R.string.chart_monthly),
-            style = MaterialTheme.typography.bodySmall)
         // A readable list also exposes chart values to screen readers.
         points.filter { it.millilitres > 0 }.forEach { point ->
             Text("${point.day} · ${number.format(point.millilitres)} ml", style = MaterialTheme.typography.bodySmall)

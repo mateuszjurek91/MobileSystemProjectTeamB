@@ -60,31 +60,42 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
         }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.nav_settings), fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
         Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
         LanguagePicker(language, onLanguage, !busy && !dataBusy)
-        Card(shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.daily_goal), fontWeight = FontWeight.SemiBold)
-                Text("$goal ml", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            }
-        }
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.daily_goal)) },
+            trailingContent = { Text("$goal ml", fontWeight = FontWeight.SemiBold) }
+        )
         ReminderSettings(profile.id, !busy && !dataBusy)
-        Card(shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(R.string.account), style = MaterialTheme.typography.titleMedium)
-                Text(profile.username, fontWeight = FontWeight.Bold)
-                Text(profile.email)
-                TextButton(enabled = !busy && !dataBusy, onClick = { edit("username") }) { Text(stringResource(R.string.change_username)) }
-                TextButton(enabled = !busy && !dataBusy, onClick = { edit("email") }) { Text(stringResource(R.string.change_email)) }
-                TextButton(enabled = !busy && !dataBusy, onClick = { edit("password") }) { Text(stringResource(R.string.change_password)) }
-                EmailConsent(profile.emailNotifications, !busy && !dataBusy) { checked ->
-                    perform { accounts.update(profile.id, consent = checked) }
+        Text(stringResource(R.string.account), style = MaterialTheme.typography.titleMedium)
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.username)) },
+            supportingContent = {
+                Column {
+                    Text(profile.username)
+                    TextButton(enabled = !busy && !dataBusy, onClick = { edit("username") }) {
+                        Text(stringResource(R.string.change_username))
+                    }
                 }
-                Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
             }
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.email)) },
+            supportingContent = {
+                Column {
+                    Text(profile.email)
+                    TextButton(enabled = !busy && !dataBusy, onClick = { edit("email") }) {
+                        Text(stringResource(R.string.change_email))
+                    }
+                }
+            }
+        )
+        TextButton(enabled = !busy && !dataBusy, onClick = { edit("password") }) {
+            Text(stringResource(R.string.change_password))
         }
+        Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
         notice?.let { Text(it) }
         if (editing == null) error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         OutlinedButton(onClick = { confirmReset = true }, enabled = !busy && !dataBusy, modifier = Modifier.fillMaxWidth()) {

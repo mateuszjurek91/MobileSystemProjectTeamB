@@ -181,21 +181,17 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
 
 @Composable
 private fun HydrationNavigation(currentScreen: Screen, onSelect: (Screen) -> Unit) {
-    Box(Modifier.fillMaxWidth().height(84.dp)) {
-        Box(Modifier.fillMaxSize().shadow(8.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-            .background(Color(0xFF4C95AA), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)))
-        Row(Modifier.fillMaxSize().selectableGroup().padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
-            Screen.entries.forEach { screen ->
-                val selected = currentScreen == screen
-                val label = stringResource(screen.titleRes)
-                Box(Modifier.size(56.dp)
-                    .background(if (selected) Color(0xFF347D92) else Color.Transparent, CircleShape).clip(CircleShape)
-                    .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(screen) })
-                    .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
-                    Icon(screen.icon, null, tint = Color(0xFFE0F7FF), modifier = Modifier.size(32.5.dp))
-                }
-            }
+    androidx.compose.material3.NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        windowInsets = WindowInsets(0, 0, 0, 0)
+    ) {
+        Screen.entries.forEach { screen ->
+            androidx.compose.material3.NavigationBarItem(
+                selected = currentScreen == screen,
+                onClick = { onSelect(screen) },
+                icon = { Icon(screen.icon, contentDescription = null) },
+                label = { Text(stringResource(screen.titleRes)) }
+            )
         }
     }
 }

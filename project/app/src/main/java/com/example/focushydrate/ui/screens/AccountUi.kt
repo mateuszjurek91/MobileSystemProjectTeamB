@@ -34,6 +34,7 @@ fun Resources.accountMessage(issue: AccountIssue): String = getString(when (issu
 fun PasswordField(value: String, onChange: (String) -> Unit, label: String, enabled: Boolean = true) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(value, onChange, modifier = Modifier.fillMaxWidth(), label = { Text(label) },
+        shape = MaterialTheme.shapes.medium,
         colors = inputColors(),
         enabled = enabled, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),

@@ -33,52 +33,52 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Ink = Color(0xFF145368)
+
 
 @Composable
 fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
     onRemoveWater: () -> Unit, onResetData: () -> Unit, onStatistics: () -> Unit, busy: Boolean = false) {
+    val ink = MaterialTheme.colorScheme.onBackground
     val fill = if (goal > 0) (intake.toFloat() / goal).coerceIn(0f, 1f) else 0f
     var confirmReset by remember { mutableStateOf(false) }
     val addLabel = stringResource(R.string.add_water)
     val removeLabel = stringResource(R.string.remove_water)
 
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 64.dp)) {
-            Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
-                Canvas(Modifier.size(7.dp)) { drawCircle(Color(0xFF569AAE)) }
-                Spacer(Modifier.width(7.dp))
-                Text(stringResource(R.string.today), color = Color(0xFF34798E), fontSize = 10.sp, letterSpacing = 1.sp)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.today), style = MaterialTheme.typography.bodyMedium)
             }
-            Text(stringResource(R.string.app_name), Modifier.align(Alignment.Center), color = Ink,
-                fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-            IconButton(enabled = !busy, onClick = { confirmReset = true }, modifier = Modifier.align(Alignment.CenterEnd).size(48.dp)) {
-                Icon(Icons.Outlined.Refresh, stringResource(R.string.reset_today), tint = Ink, modifier = Modifier.size(20.dp))
+            IconButton(enabled = !busy, onClick = { confirmReset = true }) {
+                Icon(Icons.Outlined.Refresh, stringResource(R.string.reset_today))
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val bottleHeight = (maxHeight * 0.50f).coerceIn(150.dp, 270.dp)
+            val bottleHeight = (maxHeight * 0.43f).coerceIn(112.dp, 230.dp)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 WaterBottle(fill, Modifier.height(bottleHeight).aspectRatio(0.56f))
-                Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("$intake", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                    Text("$intake", color = ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                     Text(" / $goal ml", Modifier.padding(bottom = 4.dp), color = Color(0xFF276F88),
                         fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Text(stringResource(R.string.drunk_today), color = Ink, fontSize = 12.sp)
+                Text(stringResource(R.string.drunk_today), color = ink, fontSize = 12.sp)
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = onRemoveWater, enabled = intake > 0 && !busy, shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCEEFFF), contentColor = Ink),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCEEFFF), contentColor = ink),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = removeLabel }) {
                         Text("− 250 ml", fontWeight = FontWeight.SemiBold)
                     }
                     Button(onClick = onAddWater, enabled = !busy, shape = RoundedCornerShape(12.dp),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF286E81), contentColor = Color.White),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = addLabel }) {
                         Text("+ 250 ml", fontWeight = FontWeight.Bold)
                     }

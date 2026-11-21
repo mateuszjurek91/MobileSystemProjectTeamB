@@ -33,32 +33,31 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
-    var consent by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         LanguagePicker(language, onLanguage, !busy)
-        Icon(Icons.Outlined.WaterDrop, null, Modifier.size(54.dp), tint = MaterialTheme.colorScheme.primary)
-        Text(stringResource(R.string.app_name), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Text(stringResource(R.string.welcome), style = MaterialTheme.typography.titleMedium)
+        Icon(Icons.Outlined.WaterDrop, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
         Text(stringResource(if (registration) R.string.create_account else R.string.sign_in), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), enabled = !busy,
+            shape = MaterialTheme.shapes.medium,
             colors = inputColors(),
             label = { Text(stringResource(R.string.email)) }, singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
         if (registration) OutlinedTextField(username, { if (it.length <= 30) username = it }, Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
             colors = inputColors(),
             enabled = !busy, label = { Text(stringResource(R.string.username)) }, singleLine = true)
         PasswordField(password, { password = it }, stringResource(R.string.password), !busy)
         if (registration) {
             Text(stringResource(R.string.error_password), style = MaterialTheme.typography.bodySmall)
             PasswordField(confirm, { confirm = it }, stringResource(R.string.confirm_password), !busy)
-            EmailConsent(consent, !busy) { consent = it }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
         Button(enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = {
             if (registration && password != confirm) {
                 error = resources.getString(R.string.error_confirm)
@@ -67,7 +66,7 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
                 scope.launch {
                     try {
                         val result = withContext(Dispatchers.IO) {
-                            if (registration) accounts.register(email, username, password, consent) else accounts.login(email, password)
+                            if (registration) accounts.register(email, username, password, false) else accounts.login(email, password)
                         }
                         when (result) {
                             is AccountResult.Success -> result.profile?.let { password = ""; confirm = ""; onAuthenticated(it) }
@@ -85,6 +84,5 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
         TextButton(enabled = !busy, onClick = { registration = !registration; error = null; password = ""; confirm = "" }) {
             Text(stringResource(if (registration) R.string.have_account else R.string.need_account))
         }
-        Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
     }
 }

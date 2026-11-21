@@ -132,4 +132,9 @@
     <string name="reminder_channel">Drinking reminders</string>
     <string name="reminder_title">Time for some water</string>
     <string name="reminder_body">Take a water break and record it in FocusHydrate.</string>
+    <string name="no_entries_in_period">No entries in this period</string>
+    <string name="demo_areas">Demo areas</string>
+    <string name="map_no_points">No user spots yet</string>
+    <string name="map_no_filtered_points">No spots match this filter. User spots are unverified.</string>
+    <string name="map_show_all">Show all</string>
 </resources>

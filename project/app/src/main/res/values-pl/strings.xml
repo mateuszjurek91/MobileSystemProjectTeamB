@@ -132,4 +132,9 @@
     <string name="reminder_channel">Przypomnienia o piciu</string>
     <string name="reminder_title">Czas na wodę</string>
     <string name="reminder_body">Zrób przerwę na wodę i zapisz ją w FocusHydrate.</string>
+    <string name="no_entries_in_period">Brak wpisów w tym okresie</string>
+    <string name="demo_areas">Obszary demonstracyjne</string>
+    <string name="map_no_points">Brak punktów użytkowników</string>
+    <string name="map_no_filtered_points">Brak punktów dla tego filtra. Punkty użytkowników są niezweryfikowane.</string>
+    <string name="map_show_all">Pokaż wszystkie</string>
 </resources>
