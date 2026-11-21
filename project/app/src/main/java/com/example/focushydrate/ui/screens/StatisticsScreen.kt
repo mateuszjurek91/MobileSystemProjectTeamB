@@ -103,7 +103,11 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
                                         Text(day.takeLast(2).toInt().toString(), fontSize = 14.sp,
                                             color = if (future) Color(0xFF6E8993) else Color(0xFF145368),
                                             fontWeight = if (day == selected) FontWeight.Bold else FontWeight.Normal)
-                                        if (!future) Text("${(fraction * 100).toInt()}%", fontSize = 10.sp, color = Color(0xFF145368))
+                                        if (!future) Text(
+                                            if (entry == null) "—" else "${(fraction * 100).toInt()}%",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF145368)
+                                        )
                                     }
                                 }
                             }
