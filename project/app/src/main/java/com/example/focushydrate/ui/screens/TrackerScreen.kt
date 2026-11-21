@@ -3,6 +3,7 @@ package com.example.focushydrate.ui.screens
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 
 
@@ -103,11 +105,11 @@ fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
 @Composable
 private fun WaterBottle(fill: Float, modifier: Modifier = Modifier) {
     val animatedFill = animateFloatAsState(fill, tween(650), label = "Water level")
-    val description = stringResource(R.string.bottle_progress, (fill * 100).toInt())
+    val description = stringResource(R.string.bottle_progress, (fill * 100).roundToInt())
     Canvas(modifier.semantics {
         contentDescription = description
         progressBarRangeInfo = ProgressBarRangeInfo(fill, 0f..1f)
-    }) {
+    }.focusable()) {
         val waterFill = animatedFill.value
         val factor = minOf(size.width / 140f, size.height / 260f)
         scale(factor, factor, pivot = Offset.Zero) {
