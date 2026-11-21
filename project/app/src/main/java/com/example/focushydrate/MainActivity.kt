@@ -186,7 +186,7 @@ private fun HydrationNavigation(currentScreen: Screen, onSelect: (Screen) -> Uni
         windowInsets = WindowInsets(0, 0, 0, 0)
     ) {
         Screen.entries.forEach { screen ->
-            androidx.compose.material3.NavigationBarItem(
+            NavigationBarItem(
                 selected = currentScreen == screen,
                 onClick = { onSelect(screen) },
                 icon = { Icon(screen.icon, contentDescription = null) },
