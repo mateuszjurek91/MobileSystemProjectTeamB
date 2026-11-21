@@ -23,7 +23,7 @@
 <script src="leaflet.js"></script>
 <script>
   const send = (action, params = {}) => {
-    window.location.href = 'hydrotracker://' + action + '?' + new URLSearchParams(params);
+    window.location.href = 'focushydrate://' + action + '?' + new URLSearchParams(params);
   };
   const map = L.map('map', {minZoom:2, maxZoom:19, worldCopyJump:true}).setView([52.0,19.1],6);
   map.attributionControl.setPrefix('Leaflet');

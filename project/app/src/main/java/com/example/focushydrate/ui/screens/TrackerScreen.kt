@@ -50,7 +50,7 @@ fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
                 Spacer(Modifier.width(7.dp))
                 Text(stringResource(R.string.today), color = Color(0xFF34798E), fontSize = 10.sp, letterSpacing = 1.sp)
             }
-            Text("HydroTracker", Modifier.align(Alignment.Center), color = Ink,
+            Text(stringResource(R.string.app_name), Modifier.align(Alignment.Center), color = Ink,
                 fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
             IconButton(enabled = !busy, onClick = { confirmReset = true }, modifier = Modifier.align(Alignment.CenterEnd).size(48.dp)) {
                 Icon(Icons.Outlined.Refresh, stringResource(R.string.reset_today), tint = Ink, modifier = Modifier.size(20.dp))

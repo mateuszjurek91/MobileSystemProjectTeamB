@@ -1,6 +1,6 @@
-# HydroTracker
+# FocusHydrate
 
-HydroTracker is an Android app that helps students build a habit of drinking water. It is a course project for Mobile Systems.
+FocusHydrate is an Android app that helps students build a habit of drinking water. It is a course project for Mobile Systems.
 
 - **Tracker** records daily intake in 250 ml steps and shows progress towards a 2,000 ml goal.
 - **Statistics** show intake in a calendar and charts for the last 7, 30 or 365 days, or the full history.

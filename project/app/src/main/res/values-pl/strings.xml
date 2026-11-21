@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">HydroTracker</string>
+    <string name="app_name">FocusHydrate</string>
     <string name="nav_map">Mapa</string>
     <string name="nav_tracker">Tracker</string>
     <string name="nav_settings">Ustawienia</string>
@@ -131,5 +131,5 @@
     <string name="reminder_invalid">Wpisz poprawne godziny w formacie GG:mm, z początkiem przed końcem, i wybierz przynajmniej jeden dzień.</string>
     <string name="reminder_channel">Przypomnienia o piciu</string>
     <string name="reminder_title">Czas na wodę</string>
-    <string name="reminder_body">Zrób przerwę na wodę i zapisz ją w HydroTracker.</string>
+    <string name="reminder_body">Zrób przerwę na wodę i zapisz ją w FocusHydrate.</string>
 </resources>

@@ -42,7 +42,7 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         LanguagePicker(language, onLanguage, !busy)
         Icon(Icons.Outlined.WaterDrop, null, Modifier.size(54.dp), tint = MaterialTheme.colorScheme.primary)
-        Text("HydroTracker", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.app_name), fontSize = 30.sp, fontWeight = FontWeight.Bold)
         Text(stringResource(R.string.welcome), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(if (registration) R.string.create_account else R.string.sign_in), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), enabled = !busy,

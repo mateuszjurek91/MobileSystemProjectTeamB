@@ -137,7 +137,7 @@ fun MapScreen(profile: AccountProfile) {
                                     if (generation != reload) return true
                                     val url = request.url
                                     if (!request.isForMainFrame) return true
-                                    if (url.scheme == "hydrotracker") {
+                                    if (url.scheme == "focushydrate") {
                                         when (url.host) {
                                             "ready" -> ready = true
                                             "loaded" -> mapState = "loaded"
