@@ -175,7 +175,10 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
                     }, onResetData = { changeWater(null, reset = true) }, dataBusy = busy)
             }
         }
-        HydrationNavigation(currentScreen) { currentScreen = it }
+        HydrationNavigation(currentScreen) {
+            if (it == Screen.Tracker) statistics = false
+            currentScreen = it
+        }
     }
 }
 

@@ -39,6 +39,8 @@ import java.text.DateFormatSymbols
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import kotlin.math.sin
+import androidx.compose.ui.graphics.drawscope.rotate
 
 @Composable
 fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Unit) {
@@ -54,6 +56,12 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
     val points = remember(history, range, today) { historyPoints(history, range, today) }
     val total = points.sumOf { it.millilitres }
     val number = NumberFormat.getIntegerInstance(locale)
+    val motion = rememberWaterMotion(slots.any { day ->
+        val progress = lookup[day]?.progress ?: 0f
+        day != null && day <= today && progress > 0f && progress < 1f
+    })
+    val settledTilt = motion.settledTilt()
+    val verticalBounce = motion.verticalBounce()
     val selectedEntry = lookup[selected]
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -128,8 +136,32 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
                                     .clickable(enabled = !future) { selected = day }
                                     .semantics { contentDescription = label }) {
                                     Canvas(Modifier.matchParentSize()) {
-                                        drawRect(Color(0xFF68BDD1).copy(alpha = 0.65f),
-                                            Offset(0f, size.height * (1 - fraction)), Size(size.width, size.height * fraction))
+                                        val waterColor = Color(0xFF68BDD1).copy(alpha = 0.65f)
+                                        if (fraction >= 1f) {
+                                            drawRect(waterColor)
+                                        } else if (fraction > 0f) {
+                                            val angle = settledTilt.value
+                                            val bounceLimit = minOf(fraction, 1f - fraction) * size.minDimension * 0.25f
+                                            val bounce = (verticalBounce.value * size.height / 223f)
+                                                .coerceIn(-bounceLimit, bounceLimit)
+                                            val level = center.y + liquidOffset(angle, size.width, size.height, fraction) + bounce
+                                            val span = maxOf(size.width, size.height)
+                                            val sway = motion.sway(angle)
+                                            val amplitude = (motion.amplitude(sway) * size.height / 260f)
+                                                .coerceAtMost(minOf(fraction, 1f - fraction) * size.minDimension * 0.35f)
+                                            val water = Path().apply {
+                                                for (step in 0..48) {
+                                                    val x = center.x + span * (step / 24f - 1f)
+                                                    val y = level + amplitude *
+                                                        sin((x - center.x) / size.width * 6.283185f + sway * 0.035f)
+                                                    if (step == 0) moveTo(x, y) else lineTo(x, y)
+                                                }
+                                                lineTo(center.x + span, center.y + span)
+                                                lineTo(center.x - span, center.y + span)
+                                                close()
+                                            }
+                                            rotate(angle) { drawPath(water, waterColor) }
+                                        }
                                     }
                                     Column(Modifier.fillMaxWidth().align(Alignment.Center).padding(vertical = 4.dp), verticalArrangement = Arrangement.Center,
                                         horizontalAlignment = Alignment.CenterHorizontally) {
