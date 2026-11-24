@@ -137,4 +137,13 @@
     <string name="map_no_points">No user spots yet</string>
     <string name="map_no_filtered_points">No spots match this filter. User spots are unverified.</string>
     <string name="map_show_all">Show all</string>
+    <string name="goal_tap_to_edit">Tap to change or calculate</string>
+    <string name="goal_show_calculator">Calculate from weight &amp; height</string>
+    <string name="goal_hide_calculator">Hide calculator</string>
+    <string name="goal_weight_kg">Weight (kg)</string>
+    <string name="goal_height_cm">Height (cm)</string>
+    <string name="goal_activity">Sport activity</string>
+    <string name="activity_low">Low</string>
+    <string name="activity_medium">Medium</string>
+    <string name="activity_high">High</string>
 </resources>

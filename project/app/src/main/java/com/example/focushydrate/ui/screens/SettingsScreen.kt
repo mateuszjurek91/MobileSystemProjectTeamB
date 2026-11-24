@@ -1,5 +1,6 @@
 package com.example.focushydrate.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,8 +27,9 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, language: String,
-    onLanguage: (String) -> Unit, onProfile: (AccountProfile?) -> Unit,
-    onDelete: (String) -> AccountResult, onResetData: () -> Unit, dataBusy: Boolean = false) {
+                   onLanguage: (String) -> Unit, onProfile: (AccountProfile?) -> Unit,
+                   onDelete: (String) -> AccountResult, onResetData: () -> Unit, dataBusy: Boolean = false,
+                   onGoalChange: (Int) -> Unit = {}) {
     var editing by remember { mutableStateOf<String?>(null) }
     var value by remember { mutableStateOf("") }
     var currentPassword by remember { mutableStateOf("") }
@@ -36,6 +38,7 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
+    var showGoalDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
     fun edit(field: String) {
@@ -65,7 +68,9 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
         Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
         LanguagePicker(language, onLanguage, !busy && !dataBusy)
         ListItem(
+            modifier = Modifier.clickable(enabled = !busy && !dataBusy) { showGoalDialog = true },
             headlineContent = { Text(stringResource(R.string.daily_goal)) },
+            supportingContent = { Text(stringResource(R.string.goal_tap_to_edit)) },
             trailingContent = { Text("$goal ml", fontWeight = FontWeight.SemiBold) }
         )
         ReminderSettings(profile.id, !busy && !dataBusy)
@@ -107,6 +112,114 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
         TextButton(onClick = { edit("delete") }, enabled = !busy && !dataBusy) {
             Text(stringResource(R.string.delete_account), color = MaterialTheme.colorScheme.error)
         }
+    }
+    if (showGoalDialog) {
+        var selectedGoal by remember { mutableIntStateOf(goal) }
+        var showCalculator by remember { mutableStateOf(false) }
+        var weight by remember { mutableStateOf("") }
+        var height by remember { mutableStateOf("") }
+        var activity by remember { mutableStateOf(ActivityLevel.MEDIUM) }
+
+        fun recalculateIfValid(wText: String, hText: String, act: ActivityLevel) {
+            val w = wText.toIntOrNull()
+            val h = hText.toIntOrNull()
+            if (w != null && h != null && w in 35..200 && h in 120..230) {
+                selectedGoal = calculateWaterGoal(w, h, act)
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showGoalDialog = false },
+            title = { Text(stringResource(R.string.daily_goal)) },
+            text = {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilledTonalButton(
+                            onClick = { selectedGoal = (selectedGoal - 250).coerceAtLeast(1000) }
+                        ) { Text("-250") }
+                        Text(
+                            text = "$selectedGoal ml",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        FilledTonalButton(
+                            onClick = { selectedGoal = (selectedGoal + 250).coerceAtMost(5000) }
+                        ) { Text("+250") }
+                    }
+                    TextButton(onClick = { showCalculator = !showCalculator }) {
+                        Text(
+                            stringResource(
+                                if (showCalculator) R.string.goal_hide_calculator
+                                else R.string.goal_show_calculator
+                            )
+                        )
+                    }
+                    if (showCalculator) {
+                        OutlinedTextField(
+                            value = weight,
+                            onValueChange = {
+                                weight = it.filter(Char::isDigit).take(3)
+                                recalculateIfValid(weight, height, activity)
+                            },
+                            colors = inputColors(),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.goal_weight_kg)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        OutlinedTextField(
+                            value = height,
+                            onValueChange = {
+                                height = it.filter(Char::isDigit).take(3)
+                                recalculateIfValid(weight, height, activity)
+                            },
+                            colors = inputColors(),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.goal_height_cm)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Text(
+                            text = stringResource(R.string.goal_activity),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActivityLevel.entries.forEach { level ->
+                                val labelRes = when (level) {
+                                    ActivityLevel.LOW -> R.string.activity_low
+                                    ActivityLevel.MEDIUM -> R.string.activity_medium
+                                    ActivityLevel.HIGH -> R.string.activity_high
+                                }
+                                FilterChip(
+                                    selected = activity == level,
+                                    onClick = {
+                                        activity = level
+                                        recalculateIfValid(weight, height, activity)
+                                    },
+                                    label = { Text(stringResource(labelRes)) }
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onGoalChange(selectedGoal)
+                    showGoalDialog = false
+                }) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGoalDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
     if (confirmReset) AlertDialog(onDismissRequest = { confirmReset = false },
         title = { Text(stringResource(R.string.reset_title)) }, text = { Text(stringResource(R.string.reset_body)) },

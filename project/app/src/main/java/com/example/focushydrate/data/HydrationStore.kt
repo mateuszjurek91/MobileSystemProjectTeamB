@@ -20,6 +20,12 @@ class HydrationStore(context: Context) {
         if (drinkAt != null) editor.putLong("last_drink_$accountId", drinkAt)
         return editor.commit()
     }
+    fun loadGoal(accountId: String): Int = prefs.getInt("goal_$accountId", 2000)
+    fun saveGoal(accountId: String, goal: Int): Boolean = prefs.edit().putInt("goal_$accountId", goal).commit()
     fun lastDrink(accountId: String): Long = prefs.getLong("last_drink_$accountId", 0)
-    fun delete(accountId: String): Boolean = prefs.edit().remove(accountId).remove("last_drink_$accountId").commit()
+    fun delete(accountId: String): Boolean = prefs.edit()
+        .remove(accountId)
+        .remove("last_drink_$accountId")
+        .remove("goal_$accountId")
+        .commit()
 }

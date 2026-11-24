@@ -137,4 +137,13 @@
     <string name="map_no_points">Brak punktów użytkowników</string>
     <string name="map_no_filtered_points">Brak punktów dla tego filtra. Punkty użytkowników są niezweryfikowane.</string>
     <string name="map_show_all">Pokaż wszystkie</string>
+    <string name="goal_tap_to_edit">Dotknij, aby zmienić lub obliczyć</string>
+    <string name="goal_show_calculator">Oblicz na podstawie wagi i wzrostu</string>
+    <string name="goal_hide_calculator">Ukryj kalkulator</string>
+    <string name="goal_weight_kg">Waga (kg)</string>
+    <string name="goal_height_cm">Wzrost (cm)</string>
+    <string name="goal_activity">Aktywność sportowa</string>
+    <string name="activity_low">Niska</string>
+    <string name="activity_medium">Średnia</string>
+    <string name="activity_high">Wysoka</string>
 </resources>

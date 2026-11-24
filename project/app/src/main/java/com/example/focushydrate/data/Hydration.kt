@@ -10,6 +10,23 @@ data class DailyIntake(val day: String, val millilitres: Int, val goal: Int = 20
     val progress: Float get() = (millilitres.toFloat() / goal).coerceIn(0f, 1f)
 }
 enum class HistoryRange { WEEK, MONTH, YEAR, ALL }
+
+enum class ActivityLevel(val bonusMl: Int) {
+    LOW(0),       // Niska
+    MEDIUM(250),  // Średnia
+    HIGH(500)     // Wysoka
+}
+
+fun calculateWaterGoal(weightKg: Int, heightCm: Int, activity: ActivityLevel): Int {
+    val base = (weightKg * 30) + ((heightCm - 100).coerceAtLeast(0) * 5) + activity.bonusMl
+    val rounded = ((base + 125) / 250) * 250
+    return rounded.coerceIn(1500, 5000)
+}
+
+fun updateGoalForDay(history: List<DailyIntake>, day: String, newGoal: Int): List<DailyIntake> {
+    val existing = history.find { it.day == day } ?: return history
+    return (history.filterNot { it.day == day } + existing.copy(goal = newGoal)).sortedBy { it.day }
+}
 data class ChartPoint(val day: String, val millilitres: Long)
 
 object Days {

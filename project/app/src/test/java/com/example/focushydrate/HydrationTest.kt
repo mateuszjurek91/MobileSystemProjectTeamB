@@ -71,4 +71,35 @@ class HydrationTest {
             assertEquals(1, inclusiveDayCount("2026-11-07", "2026-11-07"))
         } finally { java.util.TimeZone.setDefault(previous) }
     }
+
+    @Test
+    fun calculateWaterGoalScalesWithActivityAndRoundsTo250() {
+        assertEquals(2500, calculateWaterGoal(70, 175, ActivityLevel.LOW))
+        assertEquals(2750, calculateWaterGoal(70, 175, ActivityLevel.MEDIUM))
+        assertEquals(3000, calculateWaterGoal(70, 175, ActivityLevel.HIGH))
+    }
+
+    @Test
+    fun calculateWaterGoalRespectsMinAndMaxBounds() {
+        assertEquals(1500, calculateWaterGoal(35, 120, ActivityLevel.LOW))
+        assertEquals(5000, calculateWaterGoal(200, 220, ActivityLevel.HIGH))
+    }
+
+    @Test
+    fun updateGoalForDayChangesOnlyMatchingDay() {
+        val history = listOf(
+            DailyIntake("2026-04-01", 1000, 2000),
+            DailyIntake("2026-04-02", 500, 2000)
+        )
+        val updated = updateGoalForDay(history, "2026-04-02", 2750)
+        assertEquals(2000, updated.first { it.day == "2026-04-01" }.goal)
+        assertEquals(2750, updated.first { it.day == "2026-04-02" }.goal)
+        assertEquals(500, updated.first { it.day == "2026-04-02" }.millilitres)
+    }
+
+    @Test
+    fun updateGoalForDayLeavesHistoryUnchangedWhenDayMissing() {
+        val history = listOf(DailyIntake("2026-04-01", 1000, 2000))
+        assertEquals(history, updateGoalForDay(history, "2026-04-02", 2500))
+    }
 }

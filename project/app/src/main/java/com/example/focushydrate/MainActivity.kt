@@ -7,24 +7,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.focushydrate.data.*
 import com.example.focushydrate.localization.AppLanguage
@@ -103,11 +93,12 @@ fun HydrationApp(trackerRequest: Int = 0) {
 
 @Composable
 private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, language: String,
-    onLanguage: (String) -> Unit, trackerRequest: Int, onProfile: (AccountProfile?) -> Unit) {
+                        onLanguage: (String) -> Unit, trackerRequest: Int, onProfile: (AccountProfile?) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val store = remember { HydrationStore(context.applicationContext) }
     var history by remember { mutableStateOf<List<DailyIntake>>(emptyList()) }
+    var goal by remember { mutableIntStateOf(2000) }
     var loaded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
@@ -124,7 +115,11 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
     val scope = rememberCoroutineScope()
     LaunchedEffect(profile.id, retry) {
         loaded = false; error = null
-        try { history = withContext(Dispatchers.IO) { store.load(profile.id) }; loaded = true }
+        try {
+            history = withContext(Dispatchers.IO) { store.load(profile.id) }
+            goal = withContext(Dispatchers.IO) { store.loadGoal(profile.id) }
+            loaded = true
+        }
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = resources.getString(R.string.error_load) }
     }
@@ -136,13 +131,37 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
             try {
                 val day = Days.key(); today = day
                 val previous = history.find { it.day == day }?.millilitres ?: 0
-                val next = logWater(history, day, if (reset) -previous else delta ?: 0)
+                val next = logWater(history, day, if (reset) -previous else delta ?: 0, goal)
                 val drinkAt = if (!reset && (delta ?: 0) > 0) System.currentTimeMillis() else null
                 val saved = withContext(Dispatchers.IO) { store.save(profile.id, next, drinkAt) }
                 if (saved) {
                     history = next
                     error = null
                     withContext(Dispatchers.IO) { DrinkReminders.refresh(context.applicationContext) }
+                } else {
+                    error = resources.getString(R.string.error_storage)
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { error = resources.getString(R.string.error_storage) }
+            finally { busy = false }
+        }
+    }
+    fun changeGoal(newGoal: Int) {
+        if (busy || !loaded || newGoal == goal) return
+        busy = true
+        scope.launch {
+            try {
+                val day = Days.key(); today = day
+                val updatedHistory = updateGoalForDay(history, day, newGoal)
+                val saved = withContext(Dispatchers.IO) {
+                    val goalSaved = store.saveGoal(profile.id, newGoal)
+                    val historySaved = if (updatedHistory != history) store.save(profile.id, updatedHistory, null) else true
+                    goalSaved && historySaved
+                }
+                if (saved) {
+                    goal = newGoal
+                    history = updatedHistory
+                    error = null
                 } else {
                     error = resources.getString(R.string.error_storage)
                 }
@@ -163,9 +182,10 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
             when (currentScreen) {
                 Screen.Map -> MapScreen(profile)
                 Screen.Tracker -> if (statistics) StatisticsScreen(history, today) { statistics = false }
-                else TrackerScreen(intake, 2000, { changeWater(250) }, { changeWater(-250) },
+                else TrackerScreen(intake, goal, { changeWater(250) }, { changeWater(-250) },
                     { changeWater(null, reset = true) }, { statistics = true }, busy)
-                Screen.Settings -> SettingsScreen(2000, profile, accounts, language, onLanguage, onProfile,
+                Screen.Settings -> SettingsScreen(goal, profile, accounts, language, onLanguage, onProfile,
+                    onGoalChange = { changeGoal(it) },
                     onDelete = { password ->
                         if (!accounts.verifyPassword(profile.id, password)) AccountResult.Failure(AccountIssue.CURRENT_PASSWORD)
                         else if (!store.delete(profile.id) || !WaterSpotStore(context.applicationContext).deleteAccountData(profile.id) ||
