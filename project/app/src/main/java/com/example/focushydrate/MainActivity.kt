@@ -188,7 +188,9 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
                     onGoalChange = { changeGoal(it) },
                     onDelete = { password ->
                         if (!accounts.verifyPassword(profile.id, password)) AccountResult.Failure(AccountIssue.CURRENT_PASSWORD)
-                        else if (!store.delete(profile.id) || !WaterSpotStore(context.applicationContext).deleteAccountData(profile.id) ||
+                        else if (!store.delete(profile.id) ||
+                            !WaterSpotStore(context.applicationContext).deleteAccountData(profile.id) ||
+                            !FirestoreWaterSpotStore().deleteAccountDataBlocking(profile.id) ||
                             !ReminderStore(context.applicationContext).delete(profile.id))
                             AccountResult.Failure(AccountIssue.STORAGE)
                         else accounts.delete(profile.id, password)

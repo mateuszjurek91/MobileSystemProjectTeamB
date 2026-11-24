@@ -146,4 +146,5 @@
     <string name="activity_low">Niska</string>
     <string name="activity_medium">Średnia</string>
     <string name="activity_high">Wysoka</string>
+    <string name="point_too_close">W tym miejscu (w promieniu 25 m) istnieje już inny punkt</string>
 </resources>

@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,7 +26,9 @@ import com.example.focushydrate.data.*
 import com.example.focushydrate.R
 import androidx.compose.ui.res.stringResource
 import org.json.JSONObject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -35,23 +36,40 @@ import java.util.UUID
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun MapScreen(profile: AccountProfile) {
-    val context = LocalContext.current
     val resources = LocalResources.current
-    val store = remember { WaterSpotStore(context.applicationContext) }
+    val store = remember { FirestoreWaterSpotStore() }
     var dataAttempt by remember { mutableIntStateOf(0) }
-    var loaded by remember { mutableStateOf(false) }
+    var spotsReady by remember { mutableStateOf(false) }
+    var feedbackReady by remember { mutableStateOf(false) }
+    val loaded = spotsReady && feedbackReady
     var loadError by remember { mutableStateOf(false) }
     var spots by remember { mutableStateOf(emptyList<WaterSpot>()) }
     var reports by remember { mutableStateOf(emptyList<SpotFeedback>()) }
+
     LaunchedEffect(profile.id, dataAttempt) {
         loadError = false
-        val result = withContext(Dispatchers.IO) { runCatching { store.load() to store.loadFeedback() } }
-        result.onSuccess { (points, feedback) ->
-            spots = points
-            reports = feedback
-            loaded = true
-        }.onFailure { loadError = true }
+        try {
+            coroutineScope {
+                launch {
+                    store.observeSpots().collect { points ->
+                        spots = points
+                        spotsReady = true
+                    }
+                }
+                launch {
+                    store.observeFeedback().collect { feedback ->
+                        reports = feedback
+                        feedbackReady = true
+                    }
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            loadError = true
+        }
     }
+
     if (loadError) {
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
             Text(stringResource(R.string.error_load))
@@ -59,6 +77,7 @@ fun MapScreen(profile: AccountProfile) {
         }
         return
     }
+
     var feedbackSpot by remember { mutableStateOf<WaterSpot?>(null) }
     val translations = remember(resources, resources.configuration.locales[0]) { mapTranslations(resources) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -74,19 +93,10 @@ fun MapScreen(profile: AccountProfile) {
     var reload by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     var pointsJson by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(loaded, spots, reports) {
         if (loaded) {
             pointsJson = withContext(Dispatchers.Default) { WaterSpotStore.toJson(spots, reports) }
-        }
-    }
-
-    fun save(next: List<WaterSpot>, onSaved: () -> Unit) {
-        saving = true
-        scope.launch {
-            val saved = withContext(Dispatchers.IO) { runCatching { store.save(next) }.getOrDefault(false) }
-            saving = false
-            if (saved) { spots = next; message = null; onSaved() }
-            else message = resources.getString(R.string.error_storage)
         }
     }
 
@@ -167,8 +177,13 @@ fun MapScreen(profile: AccountProfile) {
                                                 val lat = url.getQueryParameter("latitude")?.toDoubleOrNull()
                                                 val lon = url.getQueryParameter("longitude")?.toDoubleOrNull()
                                                 if (adding && lat != null && lon != null && validCoordinates(lat, lon)) {
-                                                    pointName = ""
-                                                    selectedPoint = lat to lon
+                                                    if (hasNearbySpot(spots, lat, lon)) {
+                                                        message = resources.getString(R.string.point_too_close)
+                                                    } else {
+                                                        message = null
+                                                        pointName = ""
+                                                        selectedPoint = lat to lon
+                                                    }
                                                 }
                                             }
                                             "delete" -> spotToDelete = spots.find { it.id == url.getQueryParameter("id") && (it.ownerId == profile.id || it.ownerId.isBlank()) }
@@ -243,41 +258,56 @@ fun MapScreen(profile: AccountProfile) {
             confirmButton = {
                 TextButton(enabled = pointName.isNotBlank() && !saving, onClick = {
                     val spot = WaterSpot(UUID.randomUUID().toString(), pointName.trim(), point.first, point.second, profile.id)
-                    save(spots + spot) { selectedPoint = null; adding = false }
+                    saving = true
+                    scope.launch {
+                        val ok = runCatching { store.addSpot(spot) }.isSuccess
+                        saving = false
+                        if (ok) {
+                            message = null
+                            selectedPoint = null
+                            adding = false
+                        } else {
+                            message = resources.getString(R.string.error_storage)
+                        }
+                    }
                 }) { Text(stringResource(if (saving) R.string.saving else R.string.save)) }
             },
             dismissButton = { TextButton(enabled = !saving, onClick = { selectedPoint = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
+
     spotToDelete?.let { spot ->
         AlertDialog(onDismissRequest = { if (!saving) spotToDelete = null },
             title = { Text(stringResource(R.string.delete_point)) }, text = { Text(spot.name) },
             confirmButton = { TextButton(enabled = !saving, onClick = {
                 saving = true
                 scope.launch {
-                    val saved = withContext(Dispatchers.IO) { runCatching { store.deleteSpot(spot.id) }.getOrDefault(false) }
+                    val ok = runCatching { store.deleteSpot(spot.id) }.isSuccess
                     saving = false
-                    if (saved) {
-                        spots = spots.filterNot { it.id == spot.id }; reports = reports.filterNot { it.spotId == spot.id }; spotToDelete = null
-                    } else message = resources.getString(R.string.error_storage)
+                    if (ok) spotToDelete = null
+                    else message = resources.getString(R.string.error_storage)
                 }
             }) { Text(stringResource(R.string.delete)) } },
             dismissButton = { TextButton(enabled = !saving, onClick = { spotToDelete = null }) { Text(stringResource(R.string.cancel)) } })
     }
+
     feedbackSpot?.let { spot ->
         FeedbackDialog(spot, reports, profile, saving, message,
             onSave = { status, note ->
                 saving = true; message = null
-                val next = replaceFeedback(reports, SpotFeedback(spot.id, profile.id, profile.username, status, note, System.currentTimeMillis()))
+                val report = SpotFeedback(spot.id, profile.id, profile.username, status, note, System.currentTimeMillis())
                 scope.launch {
-                    val saved = withContext(Dispatchers.IO) { runCatching { store.saveFeedback(next) }.getOrDefault(false) }
+                    val ok = runCatching { store.saveFeedback(report) }.isSuccess
                     saving = false
-                    if (saved) { reports = next; feedbackSpot = null; message = resources.getString(R.string.feedback_saved) }
-                    else message = resources.getString(R.string.error_storage)
+                    if (ok) {
+                        feedbackSpot = null
+                        message = resources.getString(R.string.feedback_saved)
+                    } else {
+                        message = resources.getString(R.string.error_storage)
+                    }
                 }
             }, onDismiss = { feedbackSpot = null; message = null })
     }
-
 }
 
 private fun mapTranslations(resources: android.content.res.Resources): String = JSONObject().apply {

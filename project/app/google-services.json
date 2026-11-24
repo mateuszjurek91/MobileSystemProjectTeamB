@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1097442397072",
+    "project_id": "focushydrate",
+    "storage_bucket": "focushydrate.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1097442397072:android:a01eaf7e58c5f9805d8115",
+        "android_client_info": {
+          "package_name": "com.example.focushydrate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXt_aJUbZFxJNWk04uxxeaAcHqj3EVRBs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

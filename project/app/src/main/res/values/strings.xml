@@ -146,4 +146,5 @@
     <string name="activity_low">Low</string>
     <string name="activity_medium">Medium</string>
     <string name="activity_high">High</string>
+    <string name="point_too_close">A refill point already exists nearby (within 25 m)</string>
 </resources>
