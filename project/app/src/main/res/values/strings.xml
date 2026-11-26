@@ -96,7 +96,6 @@
     <string name="feedback">Feedback</string>
     <string name="report_spot">Report a problem</string>
     <string name="feedback_title">Spot feedback</string>
-    <string name="feedback_local">Reports are saved on this device only. They are not sent to other users or a moderator.</string>
     <string name="feedback_working">Working</string>
     <string name="feedback_broken">Not working</string>
     <string name="feedback_no_water">No water</string>

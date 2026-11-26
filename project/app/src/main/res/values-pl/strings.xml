@@ -96,7 +96,6 @@
     <string name="feedback">Opinie</string>
     <string name="report_spot">Zgłoś problem</string>
     <string name="feedback_title">Opinia o punkcie</string>
-    <string name="feedback_local">Zgłoszenia są zapisywane tylko na tym urządzeniu. Nie są wysyłane do innych użytkowników ani moderatora.</string>
     <string name="feedback_working">Działa</string>
     <string name="feedback_broken">Nie działa</string>
     <string name="feedback_no_water">Brak wody</string>

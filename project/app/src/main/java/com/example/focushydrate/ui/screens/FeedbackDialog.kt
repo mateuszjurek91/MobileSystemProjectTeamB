@@ -29,15 +29,16 @@ fun FeedbackDialog(spot: WaterSpot, reports: List<SpotFeedback>, profile: Accoun
     saving: Boolean, error: String?, onSave: (FeedbackStatus, String) -> Unit, onDismiss: () -> Unit) {
     val locale = LocalConfiguration.current.locales[0]
     val existing = reports.find { it.spotId == spot.id && it.authorId == profile.id }
-    var status by remember(spot.id) { mutableStateOf(existing?.status ?: FeedbackStatus.NOT_WORKING) }
+    var status by remember(spot.id) {
+        mutableStateOf(existing?.status?.takeUnless { it == FeedbackStatus.NO_WATER } ?: FeedbackStatus.NOT_WORKING)
+    }
     var note by remember(spot.id) { mutableStateOf(existing?.note ?: "") }
     AlertDialog(onDismissRequest = { if (!saving) onDismiss() },
         title = { Text(stringResource(R.string.feedback_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(spot.name, style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.feedback_local), style = MaterialTheme.typography.bodySmall)
-                FeedbackStatus.entries.forEach { item ->
+                FeedbackStatus.entries.filterNot { it == FeedbackStatus.NO_WATER }.forEach { item ->
                     Row(Modifier.fillMaxWidth().selectable(selected = item == status, enabled = !saving,
                         role = Role.RadioButton, onClick = { status = item }), verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = item == status, onClick = null)
