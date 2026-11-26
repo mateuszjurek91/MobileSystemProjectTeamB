@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -94,6 +95,7 @@ fun MapScreen(profile: AccountProfile) {
     var mapState by remember { mutableStateOf("loading") }
     var reload by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     var pointsJson by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(loaded, spots, reports) {
@@ -303,6 +305,26 @@ fun MapScreen(profile: AccountProfile) {
                     }
                 }
             }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 104.dp)
+            ) { data ->
+                Snackbar(
+                    shape = MaterialTheme.shapes.medium,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text(data.visuals.message, style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
         }
         Text(
             stringResource(R.string.map_legend),
@@ -398,7 +420,10 @@ fun MapScreen(profile: AccountProfile) {
                     saving = false
                     if (ok) {
                         feedbackSpot = null
-                        message = resources.getString(R.string.feedback_saved)
+                        snackbarHostState.showSnackbar(
+                            message = resources.getString(R.string.feedback_saved),
+                            duration = SnackbarDuration.Short
+                        )
                     } else {
                         message = resources.getString(R.string.error_storage)
                     }
