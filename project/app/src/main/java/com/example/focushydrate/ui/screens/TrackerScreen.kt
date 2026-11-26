@@ -17,11 +17,16 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.LocalDrink
 import androidx.compose.ui.res.stringResource
 import com.example.focushydrate.R
 import androidx.compose.material3.*
@@ -42,10 +47,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -57,14 +64,28 @@ import kotlin.math.sqrt
 
 
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
-    onRemoveWater: () -> Unit, onResetData: () -> Unit, onStatistics: () -> Unit, busy: Boolean = false) {
+fun TrackerScreen(
+    intake: Int,
+    goal: Int,
+    defaultAmount: Int = 250,
+    canUndo: Boolean,
+    lastAddedAmount: Int?,
+    onAddWater: (Int) -> Unit,
+    onDefaultAmountChange: (Int) -> Unit = {},
+    onUndoWater: () -> Unit,
+    onResetData: () -> Unit,
+    onStatistics: () -> Unit,
+    busy: Boolean = false
+) {
     val ink = MaterialTheme.colorScheme.onBackground
     val fill = if (goal > 0) (intake.toFloat() / goal).coerceIn(0f, 1f) else 0f
     var confirmReset by remember { mutableStateOf(false) }
+    var showCustomDialog by remember { mutableStateOf(false) }
     val addLabel = stringResource(R.string.add_water)
-    val removeLabel = stringResource(R.string.remove_water)
+    val undoLabel = stringResource(R.string.undo_water)
+    val customLabel = stringResource(R.string.custom_water)
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
@@ -79,9 +100,9 @@ fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val bottleHeight = (maxHeight * 0.43f).coerceIn(112.dp, 230.dp)
+            val bottleHeight = (maxHeight * 0.41f).coerceIn(112.dp, 220.dp)
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 20.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 WaterBottle(fill, Modifier.height(bottleHeight).aspectRatio(0.56f))
                 Spacer(Modifier.height(12.dp))
@@ -91,20 +112,94 @@ fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
                         fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Text(stringResource(R.string.drunk_today), color = ink, fontSize = 12.sp)
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = onRemoveWater, enabled = intake > 0 && !busy, shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCEEFFF), contentColor = ink),
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = removeLabel }) {
-                        Text("− 250 ml", fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(18.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth().widthIn(max = 320.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { onAddWater(defaultAmount) },
+                        enabled = !busy,
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(58.dp)
+                            .semantics { contentDescription = addLabel }
+                    ) {
+                        Icon(
+                            Icons.Outlined.LocalDrink,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "+ $defaultAmount ml",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                    Button(onClick = onAddWater, enabled = !busy, shape = RoundedCornerShape(12.dp),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = addLabel }) {
-                        Text("+ 250 ml", fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        FilledTonalButton(
+                            onClick = onUndoWater,
+                            enabled = canUndo && !busy,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFFCEEFFF),
+                                contentColor = ink
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .semantics { contentDescription = undoLabel }
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.Undo,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = if (canUndo && lastAddedAmount != null) {
+                                    stringResource(R.string.undo_amount, lastAddedAmount)
+                                } else {
+                                    stringResource(R.string.undo)
+                                },
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showCustomDialog = true },
+                            enabled = !busy,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .semantics { contentDescription = customLabel }
+                        ) {
+                            Icon(
+                                Icons.Outlined.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.custom),
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
+                Spacer(Modifier.height(6.dp))
                 TextButton(onClick = onStatistics) {
                     Icon(Icons.Outlined.BarChart, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
@@ -112,6 +207,93 @@ fun TrackerScreen(intake: Int, goal: Int, onAddWater: () -> Unit,
                 }
             }
         }
+    }
+    if (showCustomDialog) {
+        var customText by remember { mutableStateOf("") }
+        var saveAsDefault by remember { mutableStateOf(false) }
+        val parsedAmount = customText.toIntOrNull()
+        val isValid = parsedAmount != null && parsedAmount in 1..5000
+
+        AlertDialog(
+            onDismissRequest = { showCustomDialog = false },
+            title = { Text(stringResource(R.string.custom_water_title)) },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.custom_water_hint),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedTextField(
+                        value = customText,
+                        onValueChange = { customText = it.filter(Char::isDigit).take(4) },
+                        label = { Text(stringResource(R.string.custom_water_label)) },
+                        suffix = { Text("ml") },
+                        singleLine = true,
+                        colors = inputColors(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(100, 200, 250, 300, 330, 500).forEach { preset ->
+                            FilterChip(
+                                selected = parsedAmount == preset,
+                                onClick = { customText = preset.toString() },
+                                label = { Text("$preset ml") }
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = saveAsDefault,
+                                role = Role.Checkbox,
+                                onValueChange = { saveAsDefault = it }
+                            )
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = saveAsDefault,
+                            onCheckedChange = null
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.set_as_default_amount),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = isValid && !busy,
+                    onClick = {
+                        parsedAmount?.let { amount ->
+                            if (saveAsDefault) {
+                                onDefaultAmountChange(amount)
+                            }
+                            onAddWater(amount)
+                        }
+                        showCustomDialog = false
+                    }
+                ) {
+                    Text(stringResource(R.string.add))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
     if (confirmReset) {
         AlertDialog(onDismissRequest = { confirmReset = false },

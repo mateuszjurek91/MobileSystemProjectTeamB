@@ -154,4 +154,15 @@
     <string name="activity_medium">Medium</string>
     <string name="activity_high">High</string>
     <string name="point_too_close">A refill point already exists nearby (within 25 m)</string>
+    <string name="undo">Undo</string>
+    <string name="undo_amount">Undo (%1$d)</string>
+    <string name="undo_water">Undo last water entry</string>
+    <string name="custom">Custom</string>
+    <string name="custom_water">Add custom water amount</string>
+    <string name="custom_water_title">Custom amount</string>
+    <string name="custom_water_hint">Enter an amount between 1 and 5000 ml or pick a preset.</string>
+    <string name="custom_water_label">Amount</string>
+    <string name="add">Add</string>
+    <string name="set_as_default_amount">Set as default quick-add button</string>
+    <string name="default_drink_size">Default drink size</string>
 </resources>

@@ -97,14 +97,19 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
     val context = LocalContext.current
     val resources = LocalResources.current
     val store = remember { HydrationStore(context.applicationContext) }
+    val prefs = remember { context.applicationContext.getSharedPreferences("focushydrate_ui_prefs", Context.MODE_PRIVATE) }
     var history by remember { mutableStateOf<List<DailyIntake>>(emptyList()) }
     var goal by remember { mutableIntStateOf(2000) }
+    var defaultAmount by remember {
+        mutableIntStateOf(prefs.getInt("default_amount_${profile.id}", 250).coerceIn(1, 5000))
+    }
     var loaded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var currentScreen by rememberSaveable { mutableStateOf(Screen.Tracker) }
     var statistics by rememberSaveable { mutableStateOf(false) }
+    var undoStack by remember { mutableStateOf<List<Int>>(emptyList()) }
     LaunchedEffect(trackerRequest) {
         if (trackerRequest > 0) {
             currentScreen = Screen.Tracker
@@ -114,7 +119,7 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
     var today by remember { mutableStateOf(Days.key()) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(profile.id, retry) {
-        loaded = false; error = null
+        loaded = false; error = null; undoStack = emptyList()
         try {
             history = withContext(Dispatchers.IO) { store.load(profile.id) }
             goal = withContext(Dispatchers.IO) { store.loadGoal(profile.id) }
@@ -123,19 +128,87 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = resources.getString(R.string.error_load) }
     }
-    LaunchedEffect(Unit) { while (isActive) { today = Days.key(); delay(15_000) } }
-    fun changeWater(delta: Int?, reset: Boolean = false) {
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            val currentDay = Days.key()
+            if (currentDay != today) {
+                today = currentDay
+                undoStack = emptyList()
+            }
+            delay(15_000)
+        }
+    }
+    fun updateDefaultAmount(newAmount: Int) {
+        val valid = newAmount.coerceIn(1, 5000)
+        defaultAmount = valid
+        prefs.edit().putInt("default_amount_${profile.id}", valid).apply()
+    }
+    fun addWater(amount: Int) {
+        if (busy || !loaded || amount <= 0) return
+        busy = true
+        scope.launch {
+            try {
+                val day = Days.key()
+                if (day != today) {
+                    today = day
+                    undoStack = emptyList()
+                }
+                val next = logWater(history, day, amount, goal)
+                val saved = withContext(Dispatchers.IO) { store.save(profile.id, next, System.currentTimeMillis()) }
+                if (saved) {
+                    history = next
+                    undoStack = undoStack + amount
+                    error = null
+                    withContext(Dispatchers.IO) { DrinkReminders.refresh(context.applicationContext) }
+                } else {
+                    error = resources.getString(R.string.error_storage)
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { error = resources.getString(R.string.error_storage) }
+            finally { busy = false }
+        }
+    }
+    fun undoLastWater() {
+        val lastAmount = undoStack.lastOrNull() ?: return
+        if (busy || !loaded) return
+        busy = true
+        scope.launch {
+            try {
+                val day = Days.key()
+                if (day != today) {
+                    today = day
+                    undoStack = emptyList()
+                    return@launch
+                }
+                val previous = history.find { it.day == day }?.millilitres ?: 0
+                val toRemove = minOf(lastAmount, previous)
+                val next = logWater(history, day, -toRemove, goal)
+                val saved = withContext(Dispatchers.IO) { store.save(profile.id, next, null) }
+                if (saved) {
+                    history = next
+                    undoStack = undoStack.dropLast(1)
+                    error = null
+                    withContext(Dispatchers.IO) { DrinkReminders.refresh(context.applicationContext) }
+                } else {
+                    error = resources.getString(R.string.error_storage)
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { error = resources.getString(R.string.error_storage) }
+            finally { busy = false }
+        }
+    }
+    fun resetTodayWater() {
         if (busy || !loaded) return
         busy = true
         scope.launch {
             try {
                 val day = Days.key(); today = day
                 val previous = history.find { it.day == day }?.millilitres ?: 0
-                val next = logWater(history, day, if (reset) -previous else delta ?: 0, goal)
-                val drinkAt = if (!reset && (delta ?: 0) > 0) System.currentTimeMillis() else null
-                val saved = withContext(Dispatchers.IO) { store.save(profile.id, next, drinkAt) }
+                val next = logWater(history, day, -previous, goal)
+                val saved = withContext(Dispatchers.IO) { store.save(profile.id, next, null) }
                 if (saved) {
                     history = next
+                    undoStack = emptyList()
                     error = null
                     withContext(Dispatchers.IO) { DrinkReminders.refresh(context.applicationContext) }
                 } else {
@@ -182,8 +255,19 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
             when (currentScreen) {
                 Screen.Map -> MapScreen(profile)
                 Screen.Tracker -> if (statistics) StatisticsScreen(history, today) { statistics = false }
-                else TrackerScreen(intake, goal, { changeWater(250) }, { changeWater(-250) },
-                    { changeWater(null, reset = true) }, { statistics = true }, busy)
+                else TrackerScreen(
+                    intake = intake,
+                    goal = goal,
+                    defaultAmount = defaultAmount,
+                    canUndo = undoStack.isNotEmpty() && intake > 0,
+                    lastAddedAmount = undoStack.lastOrNull(),
+                    onAddWater = { amount -> addWater(amount) },
+                    onDefaultAmountChange = { updateDefaultAmount(it) },
+                    onUndoWater = { undoLastWater() },
+                    onResetData = { resetTodayWater() },
+                    onStatistics = { statistics = true },
+                    busy = busy
+                )
                 Screen.Settings -> SettingsScreen(goal, profile, accounts, language, onLanguage, onProfile,
                     onGoalChange = { changeGoal(it) },
                     onDelete = { password ->
@@ -193,8 +277,11 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
                             !FirestoreWaterSpotStore().deleteAccountDataBlocking(profile.id) ||
                             !ReminderStore(context.applicationContext).delete(profile.id))
                             AccountResult.Failure(AccountIssue.STORAGE)
-                        else accounts.delete(profile.id, password)
-                    }, onResetData = { changeWater(null, reset = true) }, dataBusy = busy)
+                        else {
+                            prefs.edit().remove("default_amount_${profile.id}").apply()
+                            accounts.delete(profile.id, password)
+                        }
+                    }, onResetData = { resetTodayWater() }, dataBusy = busy)
             }
         }
         HydrationNavigation(currentScreen) {
