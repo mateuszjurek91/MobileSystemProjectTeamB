@@ -97,6 +97,8 @@
     <string name="report_spot">Zgłoś problem</string>
     <string name="feedback_your">Twoja opinia</string>
     <string name="feedback_read">Czytaj opinie</string>
+    <string name="feedback_like">Lubię · %1$d</string>
+    <string name="feedback_dislike">Nie lubię · %1$d</string>
     <string name="feedback_read_title">Wszystkie opinie</string>
     <string name="feedback_back">Wróć do swojej opinii</string>
     <string name="feedback_delete">Usuń swoją opinię</string>

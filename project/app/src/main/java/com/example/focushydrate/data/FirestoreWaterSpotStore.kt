@@ -1,8 +1,11 @@
 package com.example.focushydrate.data
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -70,7 +73,13 @@ class FirestoreWaterSpotStore(
                         val status = runCatching { FeedbackStatus.valueOf(statusRaw) }.getOrNull() ?: return@mapNotNull null
                         val note = doc.getString("note") ?: ""
                         val createdAt = doc.getLong("createdAt") ?: 0L
-                        runCatching { SpotFeedback(spotId, authorId, authorName, status, note, createdAt) }.getOrNull()
+                        val votes = (doc.get("votes") as? Map<*, *>)?.entries.orEmpty().mapNotNull voteEntry@{ (id, value) ->
+                            val voterId = id as? String ?: return@voteEntry null
+                            if (voterId == authorId) return@voteEntry null
+                            val vote = FeedbackVote.entries.find { it.name == value } ?: return@voteEntry null
+                            voterId to vote
+                        }.toMap()
+                        runCatching { SpotFeedback(spotId, authorId, authorName, status, note, createdAt, votes) }.getOrNull()
                     }.orEmpty().sortedByDescending { it.createdAt }
                     trySend(list)
                 }
@@ -108,7 +117,20 @@ class FirestoreWaterSpotStore(
             "note" to report.note,
             "createdAt" to report.createdAt
         )
-        feedbackCollection.document(docId).set(data).await()
+        feedbackCollection.document(docId).set(data, SetOptions.merge()).await()
+    }
+
+    suspend fun toggleFeedbackVote(report: SpotFeedback, voterId: String, vote: FeedbackVote) {
+        require(voterId.isNotBlank() && voterId != report.authorId)
+        ensureAuth()
+        val document = feedbackCollection.document("${report.spotId}_${report.authorId}")
+        val field = FieldPath.of("votes", voterId)
+        db.runTransaction { transaction ->
+            val snapshot = transaction.get(document)
+            check(snapshot.exists() && snapshot.getString("authorId") == report.authorId)
+            val value = if (snapshot.get(field) == vote.name) FieldValue.delete() else vote.name
+            transaction.update(document, field, value)
+        }.await()
     }
 
     suspend fun deleteSpot(spotId: String) {

@@ -88,6 +88,7 @@ fun MapScreen(profile: AccountProfile) {
     var spotToDelete by remember { mutableStateOf<WaterSpot?>(null) }
     var pointName by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
+    var pendingVotes by remember { mutableStateOf(emptySet<Pair<String, String>>()) }
     var ready by remember { mutableStateOf(false) }
     var mapState by remember { mutableStateOf("loading") }
     var reload by remember { mutableIntStateOf(0) }
@@ -292,7 +293,7 @@ fun MapScreen(profile: AccountProfile) {
     }
 
     feedbackSpot?.let { spot ->
-        FeedbackDialog(spot, reports, profile, saving, message,
+        FeedbackDialog(spot, reports, profile, saving, message, pendingVotes,
             onSave = { status, note ->
                 saving = true; message = null
                 val report = SpotFeedback(spot.id, profile.id, profile.username, status, note, System.currentTimeMillis())
@@ -304,6 +305,24 @@ fun MapScreen(profile: AccountProfile) {
                         message = resources.getString(R.string.feedback_saved)
                     } else {
                         message = resources.getString(R.string.error_storage)
+                    }
+                }
+            },
+            onVote = { report, vote ->
+                val key = report.spotId to report.authorId
+                if (key !in pendingVotes) {
+                    pendingVotes = pendingVotes + key
+                    message = null
+                    scope.launch {
+                        try {
+                            store.toggleFeedbackVote(report, profile.id, vote)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            message = resources.getString(R.string.error_storage)
+                        } finally {
+                            pendingVotes = pendingVotes - key
+                        }
                     }
                 }
             },

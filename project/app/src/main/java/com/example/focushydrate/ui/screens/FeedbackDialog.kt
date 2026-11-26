@@ -6,6 +6,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,16 +35,14 @@ fun FeedbackStatus.label(): Int = when(this) {
 
 @Composable
 fun FeedbackDialog(spot: WaterSpot, reports: List<SpotFeedback>, profile: AccountProfile,
-    saving: Boolean, error: String?, onSave: (FeedbackStatus, String) -> Unit,
-    onDelete: () -> Unit, onDismiss: () -> Unit) {
+    saving: Boolean, error: String?, pendingVotes: Set<Pair<String, String>>, onSave: (FeedbackStatus, String) -> Unit,
+    onVote: (SpotFeedback, FeedbackVote) -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
     val locale = LocalConfiguration.current.locales[0]
     val spotReports = remember(reports, spot.id) {
         reports.filter { it.spotId == spot.id }.sortedByDescending { it.createdAt }
     }
     val existing = spotReports.find { it.authorId == profile.id }
-    val otherReports = remember(spotReports, profile.id) {
-        spotReports.filterNot { it.authorId == profile.id }.take(2)
-    }
+    val recentReports = spotReports.take(2)
     val dateFormat = remember(locale) { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale) }
     var status by rememberSaveable(spot.id) {
         mutableStateOf(existing?.status?.takeUnless { it == FeedbackStatus.NO_WATER } ?: FeedbackStatus.NOT_WORKING)
@@ -73,11 +76,22 @@ fun FeedbackDialog(spot: WaterSpot, reports: List<SpotFeedback>, profile: Accoun
             title = { Text(stringResource(R.string.feedback_read_title)) },
             text = {
                 LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    item { Text(spot.name, style = MaterialTheme.typography.titleMedium) }
+                    item {
+                        Text(spot.name, style = MaterialTheme.typography.titleMedium)
+                        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    }
                     if (spotReports.isEmpty()) item { Text(stringResource(R.string.feedback_empty)) }
-                    items(spotReports) { report ->
+                    items(spotReports, key = { it.authorId }) { report ->
                         HorizontalDivider()
-                        FeedbackEntry(report, dateFormat, Modifier.padding(top = 12.dp))
+                        Row(Modifier.fillMaxWidth().padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FeedbackEntry(report, dateFormat, Modifier.weight(1f))
+                            if (report.authorId != profile.id) {
+                                FeedbackVoteButtons(report, profile.id,
+                                    (report.spotId to report.authorId) !in pendingVotes,
+                                    onVote)
+                            }
+                        }
                     }
                 }
             },
@@ -117,8 +131,8 @@ fun FeedbackDialog(spot: WaterSpot, reports: List<SpotFeedback>, profile: Accoun
                 }
                 HorizontalDivider()
                 Text(stringResource(R.string.recent_feedback), style = MaterialTheme.typography.titleSmall)
-                if (otherReports.isEmpty()) Text(stringResource(R.string.feedback_empty))
-                otherReports.forEach { report ->
+                if (recentReports.isEmpty()) Text(stringResource(R.string.feedback_empty))
+                recentReports.forEach { report ->
                     FeedbackEntry(report, dateFormat, maxNoteLines = 2)
                 }
                 if (spotReports.isNotEmpty()) {
@@ -145,6 +159,31 @@ private fun FeedbackEntry(report: SpotFeedback, dateFormat: DateFormat,
         if (report.note.isNotBlank()) {
             Text(report.note, style = MaterialTheme.typography.bodyMedium,
                 maxLines = maxNoteLines, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun FeedbackVoteButtons(report: SpotFeedback, viewerId: String, enabled: Boolean,
+    onVote: (SpotFeedback, FeedbackVote) -> Unit) {
+    Row {
+        FeedbackVote.entries.forEach { vote ->
+            val checked = report.votes[viewerId] == vote
+            val count = report.votes.values.count { it == vote }
+            val label = when (vote) {
+                FeedbackVote.LIKE -> R.string.feedback_like
+                FeedbackVote.DISLIKE -> R.string.feedback_dislike
+            }
+            val icon = when (vote) {
+                FeedbackVote.LIKE -> if (checked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder
+                FeedbackVote.DISLIKE -> if (checked) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown
+            }
+            IconToggleButton(checked = checked, enabled = enabled, onCheckedChange = { onVote(report, vote) }) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(icon, contentDescription = stringResource(label, count), modifier = Modifier.size(20.dp))
+                    Text(count.toString(), style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
     }
 }

@@ -97,6 +97,8 @@
     <string name="report_spot">Report a problem</string>
     <string name="feedback_your">Your feedback</string>
     <string name="feedback_read">Read reviews</string>
+    <string name="feedback_like">Like · %1$d</string>
+    <string name="feedback_dislike">Dislike · %1$d</string>
     <string name="feedback_read_title">All reviews</string>
     <string name="feedback_back">Back to your feedback</string>
     <string name="feedback_delete">Delete your review</string>

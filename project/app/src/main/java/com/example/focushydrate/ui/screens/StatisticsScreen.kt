@@ -184,10 +184,6 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
                 else Text("$selected · ${stringResource(R.string.no_entry)}", style = MaterialTheme.typography.bodySmall)
             }
         }
-        // A readable list also exposes chart values to screen readers.
-        points.filter { it.millilitres > 0 }.forEach { point ->
-            Text("${point.day} · ${number.format(point.millilitres)} ml", style = MaterialTheme.typography.bodySmall)
-        }
     }
 }
 
