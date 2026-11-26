@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HydrationApp(trackerRequest: Int = 0) {
     val context = LocalContext.current
-    val accounts = remember { LocalAccounts(PreferencesAccountStorage(context.applicationContext)) }
+    val accounts = remember { LocalAccounts(FirestoreAccountStorage(context.applicationContext)) }
     var profile by remember { mutableStateOf<AccountProfile?>(null) }
     var loading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf(false) }
