@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalResources
@@ -17,7 +18,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.focushydrate.R
 import com.example.focushydrate.data.*
 import kotlinx.coroutines.CancellationException
@@ -62,13 +62,13 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
             finally { busy = false }
         }
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.nav_settings), fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.titleLarge)
         Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
         LanguagePicker(language, onLanguage, !busy && !dataBusy)
         ListItem(
-            modifier = Modifier.clickable(enabled = !busy && !dataBusy) { showGoalDialog = true },
+            modifier = Modifier.clip(MaterialTheme.shapes.large).clickable(enabled = !busy && !dataBusy) { showGoalDialog = true },
             headlineContent = { Text(stringResource(R.string.daily_goal)) },
             supportingContent = { Text(stringResource(R.string.goal_tap_to_edit)) },
             trailingContent = { Text("$goal ml", fontWeight = FontWeight.SemiBold) }
@@ -76,6 +76,7 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
         ReminderSettings(profile.id, !busy && !dataBusy)
         Text(stringResource(R.string.account), style = MaterialTheme.typography.titleMedium)
         ListItem(
+            modifier = Modifier.clip(MaterialTheme.shapes.large),
             headlineContent = { Text(stringResource(R.string.username)) },
             supportingContent = {
                 Column {
@@ -87,6 +88,7 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
             }
         )
         ListItem(
+            modifier = Modifier.clip(MaterialTheme.shapes.large),
             headlineContent = { Text(stringResource(R.string.email)) },
             supportingContent = {
                 Column {
@@ -103,10 +105,10 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
         Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
         notice?.let { Text(it) }
         if (editing == null) error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = { confirmReset = true }, enabled = !busy && !dataBusy, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { confirmReset = true }, enabled = !busy && !dataBusy, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.reset_today))
         }
-        OutlinedButton(onClick = { perform { accounts.logout() } }, enabled = !busy && !dataBusy, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { perform { accounts.logout() } }, enabled = !busy && !dataBusy, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.sign_out))
         }
         TextButton(onClick = { edit("delete") }, enabled = !busy && !dataBusy) {
@@ -142,6 +144,7 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         FilledTonalButton(
+                            shape = MaterialTheme.shapes.small,
                             onClick = { selectedGoal = (selectedGoal - 250).coerceAtLeast(1000) }
                         ) { Text("-250") }
                         Text(
@@ -150,6 +153,7 @@ fun SettingsScreen(goal: Int, profile: AccountProfile, accounts: LocalAccounts, 
                             fontWeight = FontWeight.Bold
                         )
                         FilledTonalButton(
+                            shape = MaterialTheme.shapes.small,
                             onClick = { selectedGoal = (selectedGoal + 250).coerceAtMost(5000) }
                         ) { Text("+250") }
                     }

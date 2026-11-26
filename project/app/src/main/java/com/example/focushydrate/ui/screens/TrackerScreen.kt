@@ -1,5 +1,6 @@
 package com.example.focushydrate.ui.screens
 
+import com.example.focushydrate.ui.theme.PrimaryButton
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -117,15 +118,9 @@ fun TrackerScreen(
                     modifier = Modifier.fillMaxWidth().widthIn(max = 320.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
+                    PrimaryButton(
                         onClick = { onAddWater(defaultAmount) },
                         enabled = !busy,
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(58.dp)
@@ -152,7 +147,7 @@ fun TrackerScreen(
                             enabled = canUndo && !busy,
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = Color(0xFFCEEFFF),
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = ink
                             ),
                             modifier = Modifier

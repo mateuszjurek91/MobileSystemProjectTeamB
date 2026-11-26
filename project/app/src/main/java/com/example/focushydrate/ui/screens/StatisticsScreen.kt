@@ -67,7 +67,7 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back)) }
-            Text(stringResource(R.string.statistics), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.statistics), style = MaterialTheme.typography.titleLarge)
         }
         Text(stringResource(R.string.line_chart), style = MaterialTheme.typography.titleLarge)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -83,19 +83,23 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
             inclusiveDayCount(rangeStart(history, range, today), today)
         }
         val averageLabel = stringResource(R.string.daily_average, (total / dayCount).toInt())
-        Text(totalLabel, fontWeight = FontWeight.SemiBold)
-        Text(averageLabel, style = MaterialTheme.typography.bodyMedium)
-        val hasEntries = history.any { it.day >= rangeStart(history, range, today) && it.day <= today }
-        if (!hasEntries) Text(stringResource(R.string.no_entries_in_period))
-        val summary = stringResource(R.string.chart_summary, totalLabel, averageLabel)
-        IntakeChart(points, summary)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            val pattern = if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) "d MMM" else "MMM yyyy"
-            points.firstOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
-            points.lastOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(totalLabel, fontWeight = FontWeight.SemiBold)
+                Text(averageLabel, style = MaterialTheme.typography.bodyMedium)
+                val hasEntries = history.any { it.day >= rangeStart(history, range, today) && it.day <= today }
+                if (!hasEntries) Text(stringResource(R.string.no_entries_in_period))
+                val summary = stringResource(R.string.chart_summary, totalLabel, averageLabel)
+                IntakeChart(points, summary)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    val pattern = if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) "d MMM" else "MMM yyyy"
+                    points.firstOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
+                    points.lastOrNull()?.let { Text(SimpleDateFormat(pattern, locale).format(Days.calendar(it.day).time), fontSize = 12.sp) }
+                }
+                Text(stringResource(if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) R.string.chart_daily else R.string.chart_monthly),
+                    style = MaterialTheme.typography.bodySmall)
+            }
         }
-        Text(stringResource(if (range == HistoryRange.WEEK || range == HistoryRange.MONTH) R.string.chart_daily else R.string.chart_monthly),
-            style = MaterialTheme.typography.bodySmall)
         Card {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -190,6 +194,8 @@ fun StatisticsScreen(history: List<DailyIntake>, today: String, onBack: () -> Un
 @Composable
 private fun IntakeChart(points: List<ChartPoint>, description: String) {
     val max = (points.maxOfOrNull { it.millilitres } ?: 0L).coerceAtLeast(2000L)
+    val lineColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
     Column {
         Text("$max ml", fontSize = 11.sp)
         Canvas(Modifier.fillMaxWidth().height(190.dp).semantics { contentDescription = description }) {
@@ -198,7 +204,7 @@ private fun IntakeChart(points: List<ChartPoint>, description: String) {
             val height = size.height - margin * 2
             for (row in 0..4) {
                 val y = margin + height * row / 4
-                drawLine(Color(0xFF7FADBE).copy(alpha = 0.4f), Offset(margin, y), Offset(margin + width, y), 1.dp.toPx())
+                drawLine(gridColor, Offset(margin, y), Offset(margin + width, y), 1.dp.toPx())
             }
             val positions = points.mapIndexed { index, point ->
                 Offset(if (points.size == 1) size.width / 2 else margin + width * index / (points.size - 1),
@@ -206,8 +212,8 @@ private fun IntakeChart(points: List<ChartPoint>, description: String) {
             }
             val path = Path()
             positions.forEachIndexed { index, point -> if (index == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y) }
-            drawPath(path, Color(0xFF24758B), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
-            if (positions.size <= 31) positions.forEach { drawCircle(Color(0xFF24758B), 3.dp.toPx(), it) }
+            drawPath(path, lineColor, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+            if (positions.size <= 31) positions.forEach { drawCircle(lineColor, 3.dp.toPx(), it) }
         }
         Text("0 ml", fontSize = 11.sp)
     }

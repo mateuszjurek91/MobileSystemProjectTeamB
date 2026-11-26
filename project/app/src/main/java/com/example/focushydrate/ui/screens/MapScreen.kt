@@ -2,6 +2,9 @@ package com.example.focushydrate.ui.screens
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -19,11 +22,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.focushydrate.R
 import com.example.focushydrate.data.*
@@ -39,6 +43,12 @@ import java.util.UUID
 @Composable
 fun MapScreen(profile: AccountProfile) {
     val resources = LocalResources.current
+    val context = LocalContext.current
+    val connectivity = remember(context) { context.getSystemService(ConnectivityManager::class.java) }
+    fun hasInternet(): Boolean =
+        connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
+            ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+
     val store = remember { FirestoreWaterSpotStore() }
     var dataAttempt by remember { mutableIntStateOf(0) }
     var spotsReady by remember { mutableStateOf(false) }
@@ -72,14 +82,6 @@ fun MapScreen(profile: AccountProfile) {
         }
     }
 
-    if (loadError) {
-        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-            Text(stringResource(R.string.error_load))
-            Button(onClick = { dataAttempt++ }) { Text(stringResource(R.string.retry)) }
-        }
-        return
-    }
-
     var feedbackSpot by remember { mutableStateOf<WaterSpot?>(null) }
     val translations = remember(resources, resources.configuration.locales[0]) { mapTranslations(resources) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -95,12 +97,43 @@ fun MapScreen(profile: AccountProfile) {
     var mapState by remember { mutableStateOf("loading") }
     var reload by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    var online by remember(connectivity) { mutableStateOf(hasInternet()) }
+    DisposableEffect(connectivity) {
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                scope.launch { online = hasInternet() }
+            }
+
+            override fun onLost(network: Network) {
+                scope.launch { online = hasInternet() }
+            }
+        }
+        connectivity?.registerDefaultNetworkCallback(callback)
+        onDispose { connectivity?.unregisterNetworkCallback(callback) }
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     var pointsJson by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(loaded, spots, reports) {
-        if (loaded) {
+    LaunchedEffect(spotsReady, feedbackReady, spots, reports) {
+        if (spotsReady || feedbackReady) {
             pointsJson = withContext(Dispatchers.Default) { WaterSpotStore.toJson(spots, reports) }
+        }
+    }
+
+    fun requireInternet(): Boolean {
+        message = if (hasInternet()) null else resources.getString(R.string.error_offline)
+        return message == null
+    }
+
+    suspend fun writeToMap(write: suspend () -> Unit): Boolean {
+        return try {
+            write()
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            message = resources.getString(if (hasInternet()) R.string.error_storage else R.string.error_offline)
+            false
         }
     }
 
@@ -110,7 +143,7 @@ fun MapScreen(profile: AccountProfile) {
             Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.map_title), Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.map_title), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.point_count, if (filterHidesUserSpots) 0 else spots.size), style = MaterialTheme.typography.labelMedium)
         }
         Row(
@@ -172,6 +205,16 @@ fun MapScreen(profile: AccountProfile) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        if (loadError) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.error_load),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                TextButton(onClick = { dataAttempt++ }) { Text(stringResource(R.string.retry)) }
+            }
+        }
         if (mapState == "error") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.map_error), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
@@ -184,7 +227,7 @@ fun MapScreen(profile: AccountProfile) {
             key(reload) {
                 val generation = reload
                 AndroidView(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp).clip(MaterialTheme.shapes.large),
                     factory = { viewContext ->
                         WebView(viewContext).apply {
                             layoutParams = ViewGroup.LayoutParams(
@@ -192,6 +235,7 @@ fun MapScreen(profile: AccountProfile) {
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                             settings.javaScriptEnabled = true
+                            settings.cacheMode = if (online) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
                             settings.allowFileAccess = false
                             settings.allowContentAccess = false
                             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -210,7 +254,9 @@ fun MapScreen(profile: AccountProfile) {
                                                 val lat = url.getQueryParameter("latitude")?.toDoubleOrNull()
                                                 val lon = url.getQueryParameter("longitude")?.toDoubleOrNull()
                                                 if (adding && lat != null && lon != null && validCoordinates(lat, lon)) {
-                                                    if (hasNearbySpot(spots, lat, lon)) {
+                                                    if (!requireInternet()) {
+                                                        adding = false
+                                                    } else if (hasNearbySpot(spots, lat, lon)) {
                                                         message = resources.getString(R.string.point_too_close)
                                                     } else {
                                                         message = null
@@ -219,8 +265,11 @@ fun MapScreen(profile: AccountProfile) {
                                                     }
                                                 }
                                             }
-                                            "delete" -> spotToDelete = spots.find {
-                                                it.id == url.getQueryParameter("id") && (it.ownerId == profile.id || it.ownerId.isBlank())
+                                            "delete" -> {
+                                                message = null
+                                                spotToDelete = spots.find {
+                                                    it.id == url.getQueryParameter("id") && (it.ownerId == profile.id || it.ownerId.isBlank())
+                                                }
                                             }
                                             "feedback" -> {
                                                 message = null
@@ -239,15 +288,16 @@ fun MapScreen(profile: AccountProfile) {
                         }
                     },
                     update = { view ->
+                        view.settings.cacheMode = if (online) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
                         val points = pointsJson?.let { if (filterHidesUserSpots) "[]" else it }
-                        if (ready && loaded && points != null) {
+                        if (ready) {
                             val previous = view.tag as? MapRenderState
                             val areaFilter = if (demo) filter else "hidden"
                             val state = MapRenderState(points, translations, areaFilter, adding)
                             if (previous?.filter != areaFilter || previous.adding != adding || previous.translations != translations) {
                                 view.evaluateJavascript("window.updateControls('$areaFilter', $adding, $translations)", null)
                             }
-                            if (previous?.points != points || previous.translations != translations) {
+                            if (points != null && (previous == null || previous.points != points || previous.translations != translations)) {
                                 view.evaluateJavascript("window.updateSpots($points, $translations, ${JSONObject.quote(profile.id)})", null)
                             }
                             view.tag = state
@@ -265,18 +315,24 @@ fun MapScreen(profile: AccountProfile) {
                     }
                 }
             }
-            if (loaded && !adding) {
+            if (!adding) {
                 ExtendedFloatingActionButton(
-                    onClick = { message = null; adding = true },
+                    onClick = {
+                        if (requireInternet()) {
+                            if (loaded) adding = true
+                            else message = resources.getString(if (loadError) R.string.error_load else R.string.map_loading)
+                        }
+                    },
                     expanded = true,
+                    shape = MaterialTheme.shapes.large,
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
                     text = { Text(stringResource(R.string.add_point)) },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 40.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 40.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             }
-            if (loaded && adding) {
+            if (adding) {
                 ElevatedCard(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -340,6 +396,7 @@ fun MapScreen(profile: AccountProfile) {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.point_body))
+                    message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     OutlinedTextField(
                         value = pointName,
                         onValueChange = { if (it.length <= 80) pointName = it },
@@ -358,17 +415,16 @@ fun MapScreen(profile: AccountProfile) {
                 TextButton(
                     enabled = pointName.isNotBlank() && !saving,
                     onClick = {
+                        if (!requireInternet()) return@TextButton
                         val spot = WaterSpot(UUID.randomUUID().toString(), pointName.trim(), point.first, point.second, profile.id)
                         saving = true
                         scope.launch {
-                            val ok = runCatching { store.addSpot(spot) }.isSuccess
+                            val ok = writeToMap { store.addSpot(spot) }
                             saving = false
                             if (ok) {
                                 message = null
                                 selectedPoint = null
                                 adding = false
-                            } else {
-                                message = resources.getString(R.string.error_storage)
                             }
                         }
                     }
@@ -386,17 +442,22 @@ fun MapScreen(profile: AccountProfile) {
         AlertDialog(
             onDismissRequest = { if (!saving) spotToDelete = null },
             title = { Text(stringResource(R.string.delete_point)) },
-            text = { Text(spot.name) },
+            text = {
+                Column {
+                    Text(spot.name)
+                    message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
             confirmButton = {
                 TextButton(
                     enabled = !saving,
                     onClick = {
+                        if (!requireInternet()) return@TextButton
                         saving = true
                         scope.launch {
-                            val ok = runCatching { store.deleteSpot(spot.id) }.isSuccess
+                            val ok = writeToMap { store.deleteSpot(spot.id) }
                             saving = false
                             if (ok) spotToDelete = null
-                            else message = resources.getString(R.string.error_storage)
                         }
                     }
                 ) { Text(stringResource(R.string.delete)) }
@@ -412,11 +473,12 @@ fun MapScreen(profile: AccountProfile) {
     feedbackSpot?.let { spot ->
         FeedbackDialog(
             spot, reports, profile, saving, message, pendingVotes,
-            onSave = { status, note ->
-                saving = true; message = null
+            onSave = save@{ status, note ->
+                if (!requireInternet()) return@save
+                saving = true
                 val report = SpotFeedback(spot.id, profile.id, profile.username, status, note, System.currentTimeMillis())
                 scope.launch {
-                    val ok = runCatching { store.saveFeedback(report) }.isSuccess
+                    val ok = writeToMap { store.saveFeedback(report) }
                     saving = false
                     if (ok) {
                         feedbackSpot = null
@@ -424,41 +486,31 @@ fun MapScreen(profile: AccountProfile) {
                             message = resources.getString(R.string.feedback_saved),
                             duration = SnackbarDuration.Short
                         )
-                    } else {
-                        message = resources.getString(R.string.error_storage)
                     }
                 }
             },
             onVote = { report, vote ->
                 val key = report.spotId to report.authorId
-                if (key !in pendingVotes) {
+                if (key !in pendingVotes && requireInternet()) {
                     pendingVotes = pendingVotes + key
-                    message = null
                     scope.launch {
                         try {
-                            store.toggleFeedbackVote(report, profile.id, vote)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            message = resources.getString(R.string.error_storage)
+                            writeToMap { store.toggleFeedbackVote(report, profile.id, vote) }
                         } finally {
                             pendingVotes = pendingVotes - key
                         }
                     }
                 }
             },
-            onDelete = {
+            onDelete = delete@{
+                if (!requireInternet()) return@delete
                 saving = true
-                message = null
                 scope.launch {
                     try {
-                        store.deleteFeedback(spot.id, profile.id)
-                        feedbackSpot = null
-                        message = resources.getString(R.string.feedback_deleted)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        message = resources.getString(R.string.error_storage)
+                        if (writeToMap { store.deleteFeedback(spot.id, profile.id) }) {
+                            feedbackSpot = null
+                            message = resources.getString(R.string.feedback_deleted)
+                        }
                     } finally {
                         saving = false
                     }
@@ -489,7 +541,7 @@ private fun mapTranslations(resources: android.content.res.Resources): String = 
 }.toString()
 
 private data class MapRenderState(
-    val points: String,
+    val points: String?,
     val translations: String,
     val filter: String,
     val adding: Boolean

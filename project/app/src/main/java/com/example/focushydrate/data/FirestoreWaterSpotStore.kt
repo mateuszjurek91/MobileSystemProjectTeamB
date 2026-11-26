@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -103,7 +104,8 @@ class FirestoreWaterSpotStore(
             "ownerId" to spot.ownerId,
             "createdAt" to System.currentTimeMillis()
         )
-        spotsCollection.document(spot.id).set(data).await()
+        // Transactions fail offline instead of queuing writes in the local cache.
+        db.runTransaction { it.set(spotsCollection.document(spot.id), data) }.await()
     }
 
     suspend fun saveFeedback(report: SpotFeedback) {
@@ -117,7 +119,7 @@ class FirestoreWaterSpotStore(
             "note" to report.note,
             "createdAt" to report.createdAt
         )
-        feedbackCollection.document(docId).set(data, SetOptions.merge()).await()
+        db.runTransaction { it.set(feedbackCollection.document(docId), data, SetOptions.merge()) }.await()
     }
 
     suspend fun toggleFeedbackVote(report: SpotFeedback, voterId: String, vote: FeedbackVote) {
@@ -135,16 +137,16 @@ class FirestoreWaterSpotStore(
 
     suspend fun deleteSpot(spotId: String) {
         ensureAuth()
-        val relatedFeedback = feedbackCollection.whereEqualTo("spotId", spotId).get().await()
-        db.runBatch { batch ->
-            batch.delete(spotsCollection.document(spotId))
-            relatedFeedback.documents.forEach { batch.delete(it.reference) }
+        val relatedFeedback = feedbackCollection.whereEqualTo("spotId", spotId).get(Source.SERVER).await()
+        db.runTransaction { transaction ->
+            transaction.delete(spotsCollection.document(spotId))
+            relatedFeedback.documents.forEach { transaction.delete(it.reference) }
         }.await()
     }
 
     suspend fun deleteFeedback(spotId: String, authorId: String) {
         ensureAuth()
-        feedbackCollection.document("${spotId}_${authorId}").delete().await()
+        db.runTransaction { it.delete(feedbackCollection.document("${spotId}_${authorId}")) }.await()
     }
 
     suspend fun deleteAccountData(accountId: String) {

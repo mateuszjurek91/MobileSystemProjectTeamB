@@ -136,7 +136,7 @@ fun FeedbackDialog(spot: WaterSpot, reports: List<SpotFeedback>, profile: Accoun
                     FeedbackEntry(report, dateFormat, maxNoteLines = 2)
                 }
                 if (spotReports.isNotEmpty()) {
-                    OutlinedButton(enabled = !saving, onClick = { reading = true }, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(shape = MaterialTheme.shapes.small, enabled = !saving, onClick = { reading = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.feedback_read))
                     }
                 }

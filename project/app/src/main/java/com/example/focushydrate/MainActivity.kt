@@ -1,5 +1,6 @@
 package com.example.focushydrate
 
+import com.example.focushydrate.ui.theme.PrimaryButton
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -167,7 +168,7 @@ fun HydrationApp(trackerRequest: Int = 0) {
             loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
             loadError -> Column(Modifier.align(Alignment.Center).padding(24.dp)) {
                 Text(stringResource(R.string.error_load))
-                Button(onClick = { attempt++ }) { Text(stringResource(R.string.retry)) }
+                PrimaryButton(onClick = { attempt++ }) { Text(stringResource(R.string.retry)) }
             }
             profile == null -> AuthScreen(accounts, language, onLanguage) { profile = it }
             else -> profile?.let { active ->
@@ -363,7 +364,7 @@ private fun AccountHome(
         if (!loaded) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 if (error == null) CircularProgressIndicator()
-                else Button(onClick = { retry++ }) { Text(stringResource(R.string.retry)) }
+                else PrimaryButton(onClick = { retry++ }) { Text(stringResource(R.string.retry)) }
             }
         } else Box(Modifier.weight(1f).fillMaxWidth()) {
             val intake = history.find { it.day == today }?.millilitres ?: 0
@@ -553,7 +554,14 @@ private fun HydrationNavigation(currentScreen: Screen, onSelect: (Screen) -> Uni
                 selected = currentScreen == screen,
                 onClick = { onSelect(screen) },
                 icon = { Icon(screen.icon, contentDescription = null) },
-                label = { Text(stringResource(screen.titleRes)) }
+                label = { Text(stringResource(screen.titleRes)) },
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
         }
     }

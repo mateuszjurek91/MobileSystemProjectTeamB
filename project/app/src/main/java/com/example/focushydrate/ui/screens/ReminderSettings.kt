@@ -251,8 +251,8 @@ fun ReminderSettings(accountId: String, enabled: Boolean = true) {
                                         },
                                         modifier = Modifier.weight(1f),
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                             containerColor = MaterialTheme.colorScheme.surface,
                                             labelColor = MaterialTheme.colorScheme.onSurface
                                         ),
@@ -293,6 +293,7 @@ fun ReminderSettings(accountId: String, enabled: Boolean = true) {
 
                         // 3. Przycisk testu powiadomień
                         OutlinedButton(
+                            shape = MaterialTheme.shapes.small,
                             enabled = editable && permitted,
                             modifier = Modifier.fillMaxWidth(),
                             onClick = {

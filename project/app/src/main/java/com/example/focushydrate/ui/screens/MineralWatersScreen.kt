@@ -19,7 +19,7 @@ fun MineralWatersScreen() {
     )
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-        Text("Mineral Waters Reference", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Mineral Waters Reference", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(waters) { (name, desc) ->

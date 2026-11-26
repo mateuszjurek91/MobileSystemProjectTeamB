@@ -1,5 +1,6 @@
 package com.example.focushydrate.ui.screens
 
+import com.example.focushydrate.ui.theme.PrimaryButton
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,10 +16,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.focushydrate.R
 import com.example.focushydrate.data.*
 import kotlinx.coroutines.CancellationException
@@ -41,7 +40,7 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         LanguagePicker(language, onLanguage, !busy)
         Icon(Icons.Outlined.WaterDrop, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
-        Text(stringResource(if (registration) R.string.create_account else R.string.sign_in), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(if (registration) R.string.create_account else R.string.sign_in), style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), enabled = !busy,
             shape = MaterialTheme.shapes.medium,
             colors = inputColors(),
@@ -58,7 +57,7 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
-        Button(enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = {
+        PrimaryButton(enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = {
             if (registration && password != confirm) {
                 error = resources.getString(R.string.error_confirm)
             } else {

@@ -165,4 +165,5 @@
     <string name="add">Dodaj</string>
     <string name="set_as_default_amount">Set as default quick-add button</string>
     <string name="default_drink_size">Default drink size</string>
+    <string name="error_offline">Brak dostępu do internetu. Połącz się z siecią i spróbuj ponownie.</string>
 </resources>

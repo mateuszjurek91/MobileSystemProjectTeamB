@@ -1,5 +1,6 @@
 package com.example.focushydrate.ui.screens
 
+import com.example.focushydrate.ui.theme.PrimaryButton
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,7 +17,7 @@ fun WaterCheckerScreen() {
     var searchTriggered by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-        Text("Tap-Water Checker", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Tap-Water Checker", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
@@ -38,7 +39,7 @@ fun WaterCheckerScreen() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(
+        PrimaryButton(
             onClick = { searchTriggered = true },
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
         ) {
