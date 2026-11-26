@@ -1,0 +1,16 @@
+flowchart TD
+    A["Tap Add water<br/>TrackerScreen calls AccountHome.addWater(amount)"]
+    A --> B["Check tracker state and current day<br/>logWater calculates the new daily total"]
+    B -->|"Updated history + last-drink time"| C["HydrationStore.save<br/>Commit both values to SharedPreferences for this account"]
+    C -->|"Save fails"| X["Show a storage error<br/>Keep the previous total"]
+    C -->|"Save succeeds"| D["AccountHome updates history and undo stack<br/>Compose redraws the total and bottle"]
+    D --> E["DrinkReminders.refresh<br/>Cancel old alarm and calculate the next reminder"]
+    E -->|"Allowed and a next time exists"| F["AlarmManager schedules a new alarm"]
+    classDef event fill:#eaf5fc,stroke:#176583,color:#192f38;
+    classDef data fill:#fff3df,stroke:#875006,color:#192f38;
+    classDef result fill:#e9f6ed,stroke:#216445,color:#192f38;
+    classDef error fill:#fcecec,stroke:#9f4242,color:#192f38;
+    class A,B event;
+    class C data;
+    class D,E,F result;
+    class X error;

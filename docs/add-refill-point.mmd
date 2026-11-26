@@ -1,0 +1,17 @@
+flowchart TD
+    A["Tap Add point, then tap the map<br/>Leaflet draws a temporary marker"]
+    A -->|"focushydrate://add sends coordinates"| B["MapScreen checks add mode,<br/>valid coordinates, and nearby points"]
+    B -->|"Existing point within 25 m"| X["Show nearby-point message"]
+    B -->|"Valid location with no nearby point"| C["Open name dialog<br/>User enters a name and saves"]
+    C -->|"Name, coordinates, point ID, owner ID"| D["FirestoreWaterSpotStore.addSpot<br/>Write to water_spots"]
+    D -->|"Write fails"| Y["Show a storage error"]
+    D -->|"Snapshot listener receives the change"| E["observeSpots emits updated points<br/>MapScreen serializes points and feedback to JSON"]
+    E -->|"Map ready and filter shows user points"| F["WebView calls window.updateSpots<br/>Leaflet refreshes markers and clusters"]
+    classDef event fill:#eaf5fc,stroke:#176583,color:#192f38;
+    classDef data fill:#fff3df,stroke:#875006,color:#192f38;
+    classDef result fill:#e9f6ed,stroke:#216445,color:#192f38;
+    classDef error fill:#fcecec,stroke:#9f4242,color:#192f38;
+    class A,B,C event;
+    class D,E data;
+    class F result;
+    class X,Y error;

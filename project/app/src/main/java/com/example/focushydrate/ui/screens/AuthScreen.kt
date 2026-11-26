@@ -56,7 +56,9 @@ fun AuthScreen(accounts: LocalAccounts, language: String, onLanguage: (String) -
             PasswordField(confirm, { confirm = it }, stringResource(R.string.confirm_password), !busy)
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
+        if (!registration) {
+            Text(stringResource(R.string.local_account_note), style = MaterialTheme.typography.bodySmall)
+        }
         PrimaryButton(enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = {
             if (registration && password != confirm) {
                 error = resources.getString(R.string.error_confirm)
