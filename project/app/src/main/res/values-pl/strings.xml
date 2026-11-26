@@ -147,4 +147,15 @@
     <string name="activity_medium">Średnia</string>
     <string name="activity_high">Wysoka</string>
     <string name="point_too_close">W tym miejscu (w promieniu 25 m) istnieje już inny punkt</string>
+    <string name="undo">Cofnij</string>
+    <string name="undo_amount">Cofnij (%1$d)</string>
+    <string name="undo_water">Cofnij ostatnio dodaną wodę</string>
+    <string name="custom">Własna</string>
+    <string name="custom_water">Dodaj własną ilość wody</string>
+    <string name="custom_water_title">Własna ilość wody</string>
+    <string name="custom_water_hint">Wpisz wartość od 1 do 5000 ml lub wybierz gotową porcję.</string>
+    <string name="custom_water_label">Ilość</string>
+    <string name="add">Dodaj</string>
+    <string name="set_as_default_amount">Set as default quick-add button</string>
+    <string name="default_drink_size">Default drink size</string>
 </resources>
