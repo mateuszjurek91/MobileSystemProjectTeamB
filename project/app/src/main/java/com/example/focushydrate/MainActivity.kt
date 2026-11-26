@@ -1,12 +1,20 @@
 package com.example.focushydrate
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -15,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.example.focushydrate.data.*
 import com.example.focushydrate.localization.AppLanguage
 import com.example.focushydrate.reminders.DrinkReminders
@@ -55,11 +66,64 @@ class MainActivity : ComponentActivity() {
 fun HydrationApp(trackerRequest: Int = 0) {
     val context = LocalContext.current
     val accounts = remember { LocalAccounts(FirestoreAccountStorage(context.applicationContext)) }
+    val launchPrefs = remember {
+        context.applicationContext.getSharedPreferences("app_launch_prefs", Context.MODE_PRIVATE)
+    }
     var profile by remember { mutableStateOf<AccountProfile?>(null) }
     var loading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
+    var notificationPromptFinished by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        notificationPromptFinished = true
+        if (granted) {
+            launchPrefs.edit().putBoolean("auto_enable_reminders", true).apply()
+            scope.launch(Dispatchers.IO) {
+                val activeId = profile?.id
+                if (activeId != null) {
+                    val reminderStore = ReminderStore(context.applicationContext)
+                    val currentPlan = reminderStore.load(activeId)
+                    if (!currentPlan.enabled && currentPlan.enabledAt == 0L) {
+                        DrinkReminders.update(
+                            context.applicationContext,
+                            activeId,
+                            currentPlan.copy(enabled = true, enabledAt = System.currentTimeMillis())
+                        )
+                    }
+                    launchPrefs.edit().putBoolean("auto_enable_reminders", false).apply()
+                } else {
+                    DrinkReminders.refresh(context.applicationContext)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            DrinkReminders.createChannel(context.applicationContext)
+        }
+        val alreadyAsked = launchPrefs.getBoolean("asked_notification_permission", false)
+        if (!alreadyAsked) {
+            launchPrefs.edit().putBoolean("asked_notification_permission", true).apply()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                notificationPromptFinished = true
+            }
+        } else {
+            notificationPromptFinished = true
+        }
+    }
+
     LaunchedEffect(attempt) {
         loading = true; loadError = false
         try { profile = withContext(Dispatchers.IO) { accounts.current() } }
@@ -67,9 +131,31 @@ fun HydrationApp(trackerRequest: Int = 0) {
         catch (e: Exception) { loadError = true }
         finally { loading = false }
     }
+
     LaunchedEffect(loading, profile?.id) {
-        if (!loading) withContext(Dispatchers.IO) { DrinkReminders.refresh(context.applicationContext) }
+        if (!loading) {
+            withContext(Dispatchers.IO) {
+                val activeId = profile?.id
+                if (activeId != null &&
+                    launchPrefs.getBoolean("auto_enable_reminders", false) &&
+                    DrinkReminders.allowed(context.applicationContext)
+                ) {
+                    val reminderStore = ReminderStore(context.applicationContext)
+                    val currentPlan = reminderStore.load(activeId)
+                    if (!currentPlan.enabled && currentPlan.enabledAt == 0L) {
+                        DrinkReminders.update(
+                            context.applicationContext,
+                            activeId,
+                            currentPlan.copy(enabled = true, enabledAt = System.currentTimeMillis())
+                        )
+                    }
+                    launchPrefs.edit().putBoolean("auto_enable_reminders", false).apply()
+                }
+                DrinkReminders.refresh(context.applicationContext)
+            }
+        }
     }
+
     val language = AppLanguage.current(context)
     val onLanguage: (String) -> Unit = { next ->
         if (next != language) scope.launch {
@@ -85,15 +171,32 @@ fun HydrationApp(trackerRequest: Int = 0) {
             }
             profile == null -> AuthScreen(accounts, language, onLanguage) { profile = it }
             else -> profile?.let { active ->
-                key(active.id) { AccountHome(active, accounts, language, onLanguage, trackerRequest) { profile = it } }
+                key(active.id) {
+                    AccountHome(
+                        profile = active,
+                        accounts = accounts,
+                        language = language,
+                        onLanguage = onLanguage,
+                        trackerRequest = trackerRequest,
+                        canPromptMetrics = notificationPromptFinished,
+                        onProfile = { profile = it }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, language: String,
-                        onLanguage: (String) -> Unit, trackerRequest: Int, onProfile: (AccountProfile?) -> Unit) {
+private fun AccountHome(
+    profile: AccountProfile,
+    accounts: LocalAccounts,
+    language: String,
+    onLanguage: (String) -> Unit,
+    trackerRequest: Int,
+    canPromptMetrics: Boolean,
+    onProfile: (AccountProfile?) -> Unit
+) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val store = remember { HydrationStore(context.applicationContext) }
@@ -110,6 +213,10 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
     var currentScreen by rememberSaveable { mutableStateOf(Screen.Tracker) }
     var statistics by rememberSaveable { mutableStateOf(false) }
     var undoStack by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var showBodyMetricsDialog by rememberSaveable(profile.id) { mutableStateOf(false) }
+
+    val isPolish = resources.configuration.locales[0].language.equals("pl", ignoreCase = true)
+
     LaunchedEffect(trackerRequest) {
         if (trackerRequest > 0) {
             currentScreen = Screen.Tracker
@@ -128,6 +235,14 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = resources.getString(R.string.error_load) }
     }
+
+    // Oddzielne pytanie o wzrost i wagę po pierwszym zalogowaniu/uruchomieniu
+    LaunchedEffect(loaded, canPromptMetrics, profile.id) {
+        if (loaded && canPromptMetrics && !prefs.getBoolean("asked_body_metrics_${profile.id}", false)) {
+            showBodyMetricsDialog = true
+        }
+    }
+
     LaunchedEffect(Unit) {
         while (isActive) {
             val currentDay = Days.key()
@@ -278,7 +393,12 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
                             !ReminderStore(context.applicationContext).delete(profile.id))
                             AccountResult.Failure(AccountIssue.STORAGE)
                         else {
-                            prefs.edit().remove("default_amount_${profile.id}").apply()
+                            prefs.edit()
+                                .remove("default_amount_${profile.id}")
+                                .remove("asked_body_metrics_${profile.id}")
+                                .remove("weight_${profile.id}")
+                                .remove("height_${profile.id}")
+                                .apply()
                             accounts.delete(profile.id, password)
                         }
                     }, onResetData = { resetTodayWater() }, dataBusy = busy)
@@ -288,6 +408,137 @@ private fun AccountHome(profile: AccountProfile, accounts: LocalAccounts, langua
             if (it == Screen.Tracker) statistics = false
             currentScreen = it
         }
+    }
+
+    if (showBodyMetricsDialog) {
+        var weightText by rememberSaveable { mutableStateOf("") }
+        var heightText by rememberSaveable { mutableStateOf("") }
+        var activity by rememberSaveable { mutableStateOf(ActivityLevel.MEDIUM) }
+
+        val validWeight = weightText.toIntOrNull()?.takeIf { it in 35..200 }
+        val validHeight = heightText.toIntOrNull()?.takeIf { it in 120..230 }
+        val calculatedGoal = if (validWeight != null && validHeight != null) {
+            calculateWaterGoal(validWeight, validHeight, activity)
+        } else {
+            null
+        }
+
+        fun dismissMetricsPrompt() {
+            prefs.edit().putBoolean("asked_body_metrics_${profile.id}", true).apply()
+            showBodyMetricsDialog = false
+        }
+
+        AlertDialog(
+            onDismissRequest = { dismissMetricsPrompt() },
+            title = {
+                Text(
+                    if (isPolish) "Dopasuj dzienny cel wody"
+                    else "Personalize your daily water goal"
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = if (isPolish) {
+                            "Podaj swoją wagę i wzrost, aby obliczyć zalecaną ilość wody na dzień."
+                        } else {
+                            "Enter your weight and height to calculate your recommended daily water intake."
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    OutlinedTextField(
+                        value = weightText,
+                        onValueChange = { weightText = it.filter(Char::isDigit).take(3) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = inputColors(),
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.goal_weight_kg)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    OutlinedTextField(
+                        value = heightText,
+                        onValueChange = { heightText = it.filter(Char::isDigit).take(3) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = inputColors(),
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.goal_height_cm)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Text(
+                        text = stringResource(R.string.goal_activity),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActivityLevel.entries.forEach { level ->
+                            val labelRes = when (level) {
+                                ActivityLevel.LOW -> R.string.activity_low
+                                ActivityLevel.MEDIUM -> R.string.activity_medium
+                                ActivityLevel.HIGH -> R.string.activity_high
+                            }
+                            FilterChip(
+                                selected = activity == level,
+                                onClick = { activity = level },
+                                label = { Text(stringResource(labelRes)) }
+                            )
+                        }
+                    }
+                    if (calculatedGoal != null) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (isPolish) {
+                                    "Sugerowany cel dzienny: $calculatedGoal ml"
+                                } else {
+                                    "Suggested daily goal: $calculatedGoal ml"
+                                },
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    } else if (weightText.isNotEmpty() || heightText.isNotEmpty()) {
+                        Text(
+                            text = if (isPolish) {
+                                "Wpisz poprawną wagę (35–200 kg) i wzrost (120–230 cm)."
+                            } else {
+                                "Enter a valid weight (35–200 kg) and height (120–230 cm)."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = calculatedGoal != null && !busy,
+                    onClick = {
+                        val nextGoal = calculatedGoal ?: return@TextButton
+                        prefs.edit()
+                            .putBoolean("asked_body_metrics_${profile.id}", true)
+                            .putInt("weight_${profile.id}", validWeight!!)
+                            .putInt("height_${profile.id}", validHeight!!)
+                            .apply()
+                        showBodyMetricsDialog = false
+                        changeGoal(nextGoal)
+                    }
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { dismissMetricsPrompt() }) {
+                    Text(if (isPolish) "Pomiń" else "Skip")
+                }
+            }
+        )
     }
 }
 
