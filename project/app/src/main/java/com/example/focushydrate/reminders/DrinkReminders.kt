@@ -67,12 +67,24 @@ object DrinkReminders {
             .build()
     }
 
-    fun sendTest(context: Context): Boolean = runCatching {
+    fun sendTest(context: Context): Boolean {
         createChannel(context)
         if (!allowed(context)) return false
-        NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION, buildNotification(context))
-        true
-    }.getOrDefault(false)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+        return try {
+            NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION, buildNotification(context))
+            true
+        } catch (_: SecurityException) {
+            false
+        }
+    }
 
     @Synchronized
     fun update(context: Context, account: String, plan: ReminderPlan): Boolean {
