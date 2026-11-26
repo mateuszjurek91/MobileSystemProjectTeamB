@@ -12,25 +12,26 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.focushydrate.data.*
 import com.example.focushydrate.R
-import androidx.compose.ui.res.stringResource
-import org.json.JSONObject
+import com.example.focushydrate.data.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.util.UUID
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -102,52 +103,78 @@ fun MapScreen(profile: AccountProfile) {
 
     val filterHidesUserSpots = demo && filter != "all" && !adding
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(stringResource(R.string.map_title), Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
             Text(stringResource(R.string.point_count, if (filterHidesUserSpots) 0 else spots.size), style = MaterialTheme.typography.labelMedium)
         }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = demo, onClick = { demo = !demo },
-                label = { Text(stringResource(R.string.demo_areas)) })
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = demo,
+                onClick = { demo = !demo },
+                label = { Text(stringResource(R.string.demo_areas)) }
+            )
             if (demo) {
-                listOf("all" to R.string.filter_all, "drinkable" to R.string.filter_drinkable,
-                    "not_drinkable" to R.string.filter_not_drinkable).forEach { (value, title) ->
-                    FilterChip(selected = filter == value, onClick = { filter = value },
-                        label = { Text(stringResource(title)) })
+                listOf(
+                    "all" to R.string.filter_all,
+                    "drinkable" to R.string.filter_drinkable,
+                    "not_drinkable" to R.string.filter_not_drinkable
+                ).forEach { (value, title) ->
+                    FilterChip(
+                        selected = filter == value,
+                        onClick = { filter = value },
+                        label = { Text(stringResource(title)) }
+                    )
                 }
             }
         }
-        if (demo) Text(stringResource(R.string.demo_note),
-            Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.bodySmall)
+        if (demo) {
+            Text(
+                stringResource(R.string.demo_note),
+                Modifier.padding(horizontal = 20.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         if (loaded && filterHidesUserSpots) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.map_no_filtered_points), Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall)
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.map_no_filtered_points),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall
+                )
                 TextButton(onClick = { filter = "all" }) {
                     Text(stringResource(R.string.map_show_all))
                 }
             }
         } else if (loaded && spots.isEmpty() && !adding) {
-            Text(stringResource(R.string.map_no_points), Modifier.padding(horizontal = 20.dp),
-                style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(R.string.map_no_points),
+                Modifier.padding(horizontal = 20.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         message?.let { text ->
-            Text(text, Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text,
+                Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         if (mapState == "error") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.map_error), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { ready = false; mapState = "loading"; reload++ }) { Text(stringResource(R.string.retry)) }
-            }
-        }
-        if (adding) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.choose_point), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { adding = false; selectedPoint = null }) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = { ready = false; mapState = "loading"; reload++ }) {
+                    Text(stringResource(R.string.retry))
+                }
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -157,7 +184,10 @@ fun MapScreen(profile: AccountProfile) {
                     modifier = Modifier.fillMaxSize(),
                     factory = { viewContext ->
                         WebView(viewContext).apply {
-                            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
                             settings.javaScriptEnabled = true
                             settings.allowFileAccess = false
                             settings.allowContentAccess = false
@@ -186,8 +216,13 @@ fun MapScreen(profile: AccountProfile) {
                                                     }
                                                 }
                                             }
-                                            "delete" -> spotToDelete = spots.find { it.id == url.getQueryParameter("id") && (it.ownerId == profile.id || it.ownerId.isBlank()) }
-                                            "feedback" -> { message = null; feedbackSpot = spots.find { it.id == url.getQueryParameter("id") } }
+                                            "delete" -> spotToDelete = spots.find {
+                                                it.id == url.getQueryParameter("id") && (it.ownerId == profile.id || it.ownerId.isBlank())
+                                            }
+                                            "feedback" -> {
+                                                message = null
+                                                feedbackSpot = spots.find { it.id == url.getQueryParameter("id") }
+                                            }
                                         }
                                         return true
                                     }
@@ -229,16 +264,50 @@ fun MapScreen(profile: AccountProfile) {
             }
             if (loaded && !adding) {
                 ExtendedFloatingActionButton(
-                    onClick = { adding = true }, expanded = true,
+                    onClick = { message = null; adding = true },
+                    expanded = true,
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
                     text = { Text(stringResource(R.string.add_point)) },
                     modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 40.dp),
-                    containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             }
+            if (loaded && adding) {
+                ElevatedCard(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null)
+                        Text(
+                            text = stringResource(R.string.choose_point),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        TextButton(onClick = { adding = false; selectedPoint = null; message = null }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    }
+                }
+            }
         }
-        Text(stringResource(R.string.map_legend),
-            Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+        Text(
+            stringResource(R.string.map_legend),
+            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 
     selectedPoint?.let { point ->
@@ -248,51 +317,78 @@ fun MapScreen(profile: AccountProfile) {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.point_body))
-                    OutlinedTextField(value = pointName, onValueChange = { if (it.length <= 80) pointName = it },
+                    OutlinedTextField(
+                        value = pointName,
+                        onValueChange = { if (it.length <= 80) pointName = it },
                         colors = inputColors(),
-                        enabled = !saving, label = { Text(stringResource(R.string.point_name)) }, singleLine = true)
-                    Text(java.lang.String.format(java.util.Locale.US, "%.5f, %.5f", point.first, point.second),
-                        style = MaterialTheme.typography.bodySmall)
+                        enabled = !saving,
+                        label = { Text(stringResource(R.string.point_name)) },
+                        singleLine = true
+                    )
+                    Text(
+                        java.lang.String.format(java.util.Locale.US, "%.5f, %.5f", point.first, point.second),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             },
             confirmButton = {
-                TextButton(enabled = pointName.isNotBlank() && !saving, onClick = {
-                    val spot = WaterSpot(UUID.randomUUID().toString(), pointName.trim(), point.first, point.second, profile.id)
-                    saving = true
-                    scope.launch {
-                        val ok = runCatching { store.addSpot(spot) }.isSuccess
-                        saving = false
-                        if (ok) {
-                            message = null
-                            selectedPoint = null
-                            adding = false
-                        } else {
-                            message = resources.getString(R.string.error_storage)
+                TextButton(
+                    enabled = pointName.isNotBlank() && !saving,
+                    onClick = {
+                        val spot = WaterSpot(UUID.randomUUID().toString(), pointName.trim(), point.first, point.second, profile.id)
+                        saving = true
+                        scope.launch {
+                            val ok = runCatching { store.addSpot(spot) }.isSuccess
+                            saving = false
+                            if (ok) {
+                                message = null
+                                selectedPoint = null
+                                adding = false
+                            } else {
+                                message = resources.getString(R.string.error_storage)
+                            }
                         }
                     }
-                }) { Text(stringResource(if (saving) R.string.saving else R.string.save)) }
+                ) { Text(stringResource(if (saving) R.string.saving else R.string.save)) }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { selectedPoint = null }) { Text(stringResource(R.string.cancel)) } }
+            dismissButton = {
+                TextButton(enabled = !saving, onClick = { selectedPoint = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
         )
     }
 
     spotToDelete?.let { spot ->
-        AlertDialog(onDismissRequest = { if (!saving) spotToDelete = null },
-            title = { Text(stringResource(R.string.delete_point)) }, text = { Text(spot.name) },
-            confirmButton = { TextButton(enabled = !saving, onClick = {
-                saving = true
-                scope.launch {
-                    val ok = runCatching { store.deleteSpot(spot.id) }.isSuccess
-                    saving = false
-                    if (ok) spotToDelete = null
-                    else message = resources.getString(R.string.error_storage)
+        AlertDialog(
+            onDismissRequest = { if (!saving) spotToDelete = null },
+            title = { Text(stringResource(R.string.delete_point)) },
+            text = { Text(spot.name) },
+            confirmButton = {
+                TextButton(
+                    enabled = !saving,
+                    onClick = {
+                        saving = true
+                        scope.launch {
+                            val ok = runCatching { store.deleteSpot(spot.id) }.isSuccess
+                            saving = false
+                            if (ok) spotToDelete = null
+                            else message = resources.getString(R.string.error_storage)
+                        }
+                    }
+                ) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(enabled = !saving, onClick = { spotToDelete = null }) {
+                    Text(stringResource(R.string.cancel))
                 }
-            }) { Text(stringResource(R.string.delete)) } },
-            dismissButton = { TextButton(enabled = !saving, onClick = { spotToDelete = null }) { Text(stringResource(R.string.cancel)) } })
+            }
+        )
     }
 
     feedbackSpot?.let { spot ->
-        FeedbackDialog(spot, reports, profile, saving, message,
+        FeedbackDialog(
+            spot, reports, profile, saving, message,
             onSave = { status, note ->
                 saving = true; message = null
                 val report = SpotFeedback(spot.id, profile.id, profile.username, status, note, System.currentTimeMillis())
@@ -306,7 +402,9 @@ fun MapScreen(profile: AccountProfile) {
                         message = resources.getString(R.string.error_storage)
                     }
                 }
-            }, onDismiss = { feedbackSpot = null; message = null })
+            },
+            onDismiss = { feedbackSpot = null; message = null }
+        )
     }
 }
 
@@ -331,5 +429,7 @@ private fun mapTranslations(resources: android.content.res.Resources): String = 
 
 private data class MapRenderState(
     val points: String,
-    val translations: String, val filter: String, val adding: Boolean
+    val translations: String,
+    val filter: String,
+    val adding: Boolean
 )
