@@ -17,25 +17,74 @@ import java.util.UUID
 object DrinkReminders {
     private const val CHANNEL = "drink_water"
     private const val NOTIFICATION = 2001
+    private const val TEST_NOTIFICATION = 2002
     private const val ACTION = "com.example.focushydrate.DRINK_REMINDER"
+
+    private fun currentAccountId(context: Context): String? =
+        context.getSharedPreferences("local_accounts", Context.MODE_PRIVATE)
+            .getString("session", null)
+            ?: LocalAccounts(PreferencesAccountStorage(context)).current()?.id
 
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= 26) {
             val localized = AppLanguage.wrap(context)
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(CHANNEL, localized.getString(R.string.reminder_channel), NotificationManager.IMPORTANCE_DEFAULT))
+                NotificationChannel(CHANNEL, localized.getString(R.string.reminder_channel), NotificationManager.IMPORTANCE_DEFAULT)
+            )
         }
     }
+
     fun allowed(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         return Build.VERSION.SDK_INT < 26 ||
-            context.getSystemService(NotificationManager::class.java).getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
+                context.getSystemService(NotificationManager::class.java).getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
     }
+
     private fun pending(context: Context, token: String = "", account: String = ""): PendingIntent =
-        PendingIntent.getBroadcast(context, NOTIFICATION,
+        PendingIntent.getBroadcast(
+            context, NOTIFICATION,
             Intent(context, ReminderReceiver::class.java).setAction(ACTION).putExtra("token", token).putExtra("account", account),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+    private fun buildNotification(context: Context): Notification {
+        val localized = AppLanguage.wrap(context)
+        val open = PendingIntent.getActivity(
+            context, NOTIFICATION,
+            Intent(context, MainActivity::class.java).putExtra("open_tracker", true)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(localized, CHANNEL)
+            .setSmallIcon(R.drawable.ic_water_notification)
+            .setContentTitle(localized.getString(R.string.reminder_title))
+            .setContentText(localized.getString(R.string.reminder_body))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
+    }
+
+    fun sendTest(context: Context): Boolean {
+        createChannel(context)
+        if (!allowed(context)) return false
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+        return try {
+            NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION, buildNotification(context))
+            true
+        } catch (_: SecurityException) {
+            false
+        }
+    }
 
     @Synchronized
     fun update(context: Context, account: String, plan: ReminderPlan): Boolean {
@@ -51,13 +100,13 @@ object DrinkReminders {
         alarm.cancel(pending(context))
         if (dismissNotification) NotificationManagerCompat.from(context).cancel(NOTIFICATION)
         check(store.setToken(null))
-        val profile = LocalAccounts(PreferencesAccountStorage(context)).current() ?: return true
-        val plan = store.load(profile.id)
+        val accountId = currentAccountId(context) ?: return true
+        val plan = store.load(accountId)
         if (!allowed(context)) return true
-        val next = nextReminder(plan, System.currentTimeMillis(), HydrationStore(context).lastDrink(profile.id)) ?: return true
+        val next = nextReminder(plan, System.currentTimeMillis(), HydrationStore(context).lastDrink(accountId)) ?: return true
         val token = UUID.randomUUID().toString()
         check(store.setToken(token))
-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending(context, token, profile.id))
+        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending(context, token, accountId))
         true
     }.onFailure { android.util.Log.w("DrinkReminders", "Could not schedule reminder", it) }.getOrDefault(false)
 
@@ -65,27 +114,15 @@ object DrinkReminders {
     fun deliver(context: Context, intent: Intent): Boolean = runCatching {
         val store = ReminderStore(context)
         if (intent.action != ACTION || intent.getStringExtra("token") != store.token() || store.token() == null) return false
-        val profile = LocalAccounts(PreferencesAccountStorage(context)).current() ?: return refresh(context)
-        if (intent.getStringExtra("account") != profile.id) return refresh(context)
-        val plan = store.load(profile.id)
+        val accountId = currentAccountId(context) ?: return refresh(context)
+        if (intent.getStringExtra("account") != accountId) return refresh(context)
+        val plan = store.load(accountId)
         val now = System.currentTimeMillis()
-        val due = nextReminder(plan, now, HydrationStore(context).lastDrink(profile.id))
+        val due = nextReminder(plan, now, HydrationStore(context).lastDrink(accountId))
         if (due == now && allowed(context)) {
-            check(store.save(profile.id, plan.copy(lastSent = now)))
-            val localized = AppLanguage.wrap(context)
-            val open = PendingIntent.getActivity(context, NOTIFICATION,
-                Intent(context, MainActivity::class.java).putExtra("open_tracker", true).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val notification = NotificationCompat.Builder(localized, CHANNEL)
-                .setSmallIcon(R.drawable.ic_water_notification)
-                .setContentTitle(localized.getString(R.string.reminder_title))
-                .setContentText(localized.getString(R.string.reminder_body))
-                .setContentIntent(open).setAutoCancel(true)
-                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-                .setCategory(NotificationCompat.CATEGORY_REMINDER).build()
-            // Recheck immediately before posting in case permission was revoked.
+            check(store.save(accountId, plan.copy(lastSent = now)))
             try {
-                if (allowed(context)) NotificationManagerCompat.from(context).notify(NOTIFICATION, notification)
+                if (allowed(context)) NotificationManagerCompat.from(context).notify(NOTIFICATION, buildNotification(context))
             } catch (e: SecurityException) {
                 return refresh(context)
             }
@@ -106,7 +143,9 @@ class ReminderReceiver : BroadcastReceiver() {
                     "android.app.action.NOTIFICATION_CHANNEL_BLOCK_STATE_CHANGED" -> DrinkReminders.refresh(context)
                     else -> DrinkReminders.deliver(context, intent)
                 }
-            } finally { pending.finish() }
+            } finally {
+                pending.finish()
+            }
         }, "drink-reminder").start()
     }
 }
