@@ -120,6 +120,11 @@ class FirestoreWaterSpotStore(
         }.await()
     }
 
+    suspend fun deleteFeedback(spotId: String, authorId: String) {
+        ensureAuth()
+        feedbackCollection.document("${spotId}_${authorId}").delete().await()
+    }
+
     suspend fun deleteAccountData(accountId: String) {
         ensureAuth()
         val ownedSpots = spotsCollection.whereEqualTo("ownerId", accountId).get().await()

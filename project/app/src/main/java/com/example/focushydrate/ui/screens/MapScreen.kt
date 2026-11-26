@@ -306,7 +306,25 @@ fun MapScreen(profile: AccountProfile) {
                         message = resources.getString(R.string.error_storage)
                     }
                 }
-            }, onDismiss = { feedbackSpot = null; message = null })
+            },
+            onDelete = {
+                saving = true
+                message = null
+                scope.launch {
+                    try {
+                        store.deleteFeedback(spot.id, profile.id)
+                        feedbackSpot = null
+                        message = resources.getString(R.string.feedback_deleted)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        message = resources.getString(R.string.error_storage)
+                    } finally {
+                        saving = false
+                    }
+                }
+            },
+            onDismiss = { feedbackSpot = null; message = null })
     }
 }
 

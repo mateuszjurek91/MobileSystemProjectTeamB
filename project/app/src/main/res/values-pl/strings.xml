@@ -95,7 +95,13 @@
     <string name="delete_point_button">Usuń punkt</string>
     <string name="feedback">Opinie</string>
     <string name="report_spot">Zgłoś problem</string>
-    <string name="feedback_title">Opinia o punkcie</string>
+    <string name="feedback_your">Twoja opinia</string>
+    <string name="feedback_read">Czytaj opinie</string>
+    <string name="feedback_read_title">Wszystkie opinie</string>
+    <string name="feedback_back">Wróć do swojej opinii</string>
+    <string name="feedback_delete">Usuń swoją opinię</string>
+    <string name="feedback_delete_confirmation">Czy usunąć Twoją opinię o punkcie „%1$s”?</string>
+    <string name="feedback_deleted">Opinia usunięta</string>
     <string name="feedback_working">Działa</string>
     <string name="feedback_broken">Nie działa</string>
     <string name="feedback_no_water">Brak wody</string>

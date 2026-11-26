@@ -95,7 +95,13 @@
     <string name="delete_point_button">Delete spot</string>
     <string name="feedback">Feedback</string>
     <string name="report_spot">Report a problem</string>
-    <string name="feedback_title">Spot feedback</string>
+    <string name="feedback_your">Your feedback</string>
+    <string name="feedback_read">Read reviews</string>
+    <string name="feedback_read_title">All reviews</string>
+    <string name="feedback_back">Back to your feedback</string>
+    <string name="feedback_delete">Delete your review</string>
+    <string name="feedback_delete_confirmation">Delete your review of %1$s?</string>
+    <string name="feedback_deleted">Review deleted</string>
     <string name="feedback_working">Working</string>
     <string name="feedback_broken">Not working</string>
     <string name="feedback_no_water">No water</string>
